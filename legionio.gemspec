@@ -10,8 +10,8 @@ Gem::Specification.new do |spec|
   spec.authors       = ['Esity']
   spec.email         = ['matthewdiverson@gmail.com']
 
-  spec.summary       = ''
-  spec.description   = ''
+  spec.summary       = 'The primary gem to run the LegionIO Framework'
+  spec.description   = 'LegionIO is an extensible framework for running, scheduling and building relationships of tasks in a concurrent matter'
   spec.homepage      = 'https://github.com/Optum/LegionIO'
   spec.license       = 'Apache-2.0'
   spec.require_paths = ['lib']

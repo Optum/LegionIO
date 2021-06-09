@@ -3,6 +3,7 @@
 LegionIO is a framework for automating and connecting things. You can see all the docs inside confluence  
 https://legionio.atlassian.net/wiki/spaces/LEGION/overview
 https://legionio.atlassian.net/wiki/spaces/LEX/pages/7864551/Extensions
+*Soon to be migrated to GitHub Wiki*
 
 ### What does it do?
 LegionIO is an async job engine designed for scheduling tasks and creating relationships between things that wouldn't 
@@ -26,21 +27,21 @@ After installing gem you can use the commands `legionio` to start legion, `legio
 and `lex_gen` to generate a new legion extension
 
 ### Example Legion Extensions(LEX)
-* [lex-http](https://bitbucket.org/legion-io/lex-http/src/master/) - Gives legion the ability to make http requests, [docs](https://legionio.atlassian.net/wiki/spaces/LEX/pages/12910593/Lex+Http)
-* [lex-influxdb](https://bitbucket.org/legion-io/lex-influxdb/src/master/) - Write, read, and manage influxdb nodes, [docs](https://legionio.atlassian.net/wiki/spaces/LEX/pages/614891774/Lex+Influxdb)
-* [lex-log](https://bitbucket.org/legion-io/lex-log/src/master/) - Send log items to either stdout or a file with lex-log, [docs](https://legionio.atlassian.net/wiki/spaces/LEX/pages/614858995/Lex+Log)
-* [lex-memcache](https://bitbucket.org/legion-io/lex-memcached/src/master/) - run memcached commands like set, add, append, delete, flush, reset_stats against memcached servers, [docs](https://legionio.atlassian.net/wiki/spaces/LEX/pages/614858753/Lex+Memcached)
-* [lex-pihole](https://bitbucket.org/legion-io/lex-pihole/src/master/) - Allows Legion to interact with [Pi-Hole](https://pi-hole.net/). Can do things like get status, add/remove domains from the list, etc 
-* [lex-ping](https://bitbucket.org/legion-io/lex-ping/src/master/) - You can ping things?, [docs](https://legionio.atlassian.net/wiki/spaces/LEX/pages/631373895/Lex+Ping)
-* [lex-pushover](https://bitbucket.org/legion-io/lex-pushover/src/master/) - Connects Legion to [Pushover](https://pushover.net/), [docs]()
-* [lex-redis](https://bitbucket.org/legion-io/lex-redis/src/master/) - similiar to lex-memcached but for redis
-* [lex-sleepiq](https://bitbucket.org/legion-io/lex-sleepiq/src/master/) - Control your SleepIQ bed with Legion!
-* [lex-ssh](https://bitbucket.org/legion-io/lex-ssh/src/master/) - Send commands to a server via SSH in an async fashion, [docs](https://legionio.atlassian.net/wiki/spaces/LEX/pages/614891551/Lex+SSH)
+* [lex-http](https://github.com/LegionIO/lex-http/src/master/) - Gives legion the ability to make http requests, [docs](https://legionio.atlassian.net/wiki/spaces/LEX/pages/12910593/Lex+Http)
+* [lex-influxdb](https://github.com/LegionIO/lex-influxdb/src/master/) - Write, read, and manage influxdb nodes, [docs](https://legionio.atlassian.net/wiki/spaces/LEX/pages/614891774/Lex+Influxdb)
+* [lex-log](https://github.com/LegionIO/lex-log/src/master/) - Send log items to either stdout or a file with lex-log, [docs](https://legionio.atlassian.net/wiki/spaces/LEX/pages/614858995/Lex+Log)
+* [lex-memcache](https://github.com/LegionIO/lex-memcached/src/master/) - run memcached commands like set, add, append, delete, flush, reset_stats against memcached servers, [docs](https://legionio.atlassian.net/wiki/spaces/LEX/pages/614858753/Lex+Memcached)
+* [lex-pihole](https://github.com/LegionIO/lex-pihole/src/master/) - Allows Legion to interact with [Pi-Hole](https://pi-hole.net/). Can do things like get status, add/remove domains from the list, etc 
+* [lex-ping](https://github.com/LegionIO/lex-ping/src/master/) - You can ping things?, [docs](https://legionio.atlassian.net/wiki/spaces/LEX/pages/631373895/Lex+Ping)
+* [lex-pushover](https://github.com/LegionIO/lex-pushover/src/master/) - Connects Legion to [Pushover](https://pushover.net/), [docs]()
+* [lex-redis](https://github.com/LegionIO/lex-redis/src/master/) - similiar to lex-memcached but for redis
+* [lex-sleepiq](https://github.com/LegionIO/lex-sleepiq/src/master/) - Control your SleepIQ bed with Legion!
+* [lex-ssh](https://github.com/LegionIO/lex-ssh/src/master/) - Send commands to a server via SSH in an async fashion, [docs](https://legionio.atlassian.net/wiki/spaces/LEX/pages/614891551/Lex+SSH)
 
 Bitbucket repos for extensions that are active or being worked on
-[lex list](https://bitbucket.org/legion-io/workspace/projects/LEX)
+[lex list](https://github.com/LegionIO/workspace/projects/LEX)
 A nice list in the wiki to view all the extensions, their docs and status
-[Legion Extensions](https://legionio.atlassian.net/wiki/spaces/LEX/pages/7864551/Extensions)
+[Legion Extensions](https://github.com/topics/legionio?l=ruby)
 
 ### Scheduling Tasks
 1) Ensure you have the Legion::Data gem installed and configured  
