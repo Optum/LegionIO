@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+require 'thor'
+require 'legion/cli'
+Legion::CLI.start

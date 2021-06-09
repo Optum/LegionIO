@@ -1,0 +1,11 @@
+module Legion::Extensions::<%= config[:lex].split('_').collect(&:capitalize).join %>
+  module Transport
+    module Exchanges
+      class <%= config[:name].split('_').collect(&:capitalize).join %> < Legion::Transport::Exchange
+        def exchange_name
+          '<%= config[:name].split('_').collect(&:capitalize).join %>'
+        end
+      end
+    end
+  end
+end

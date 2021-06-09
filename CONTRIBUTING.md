@@ -15,10 +15,11 @@ We track our work using Issues in GitHub. Feel free to open up your own issue to
 ## Coding Standards
 
 We have some general guidelines towards contributing to this project.
+Please run RSpec and Rubocop while developing code for LegionIO
 
 ### Languages
 
-*Lua*
+*Ruby*
 
 ## Pull Requests
 

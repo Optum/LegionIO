@@ -1,0 +1,23 @@
+module Legion::Extensions::<%= config[:lex].split('_').collect(&:capitalize).join %>
+  module Transport
+    module Messages
+      class <%= config[:name].split('_').collect(&:capitalize).join %> < Legion::Transport::Message
+        def initialize(payload, status, options = {})
+          @payload = payload
+          @options = options
+          @status = status
+          @routing_key = routing_key
+          validate
+        end
+
+        def routing_key
+          "<%= config[:lex].split('_').collect(&:capitalize).join %>.<%= config[:name].split('_').collect(&:capitalize).join %>"
+        end
+
+        def message(payload = @payload, _options = {})
+          Legion::JSON.dump(payload)
+        end
+      end
+    end
+  end
+end

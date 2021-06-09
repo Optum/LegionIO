@@ -1,0 +1,12 @@
+module Legion
+  module Extensions
+    module <%= config[:lex].split('_').collect(&:capitalize).join %>
+      module Transport
+        module Queues
+          class <%= config[:name].split('_').collect(&:capitalize).join %> < Legion::Transport::Queue
+          end
+        end
+      end
+    end
+  end
+end

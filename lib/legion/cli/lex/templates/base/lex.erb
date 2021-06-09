@@ -1,0 +1,9 @@
+require 'legion/extensions/<%= config[:lex] %>/version'
+
+module Legion
+  module Extensions
+    module <%= config[:class_name] %>
+      extend Legion::Extensions::Core if Legion::Extensions.const_defined? :Core
+    end
+  end
+end

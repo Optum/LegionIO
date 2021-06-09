@@ -1,0 +1,11 @@
+require 'spec_helper'
+require 'queue_helper'
+require 'legion/extensions/<%= config[:lex] %>/transport/queues/<%= config[:name] %>'
+
+RSpec.describe Legion::Extensions::<%= config[:lex].split('_').collect(&:capitalize).join %>::Transport::Queues::<%= config[:name].capitalize %> do
+  it { should be_a Legion::Transport::Queue }
+  it { should respond_to :queue_name }
+  it { should respond_to(:acknowledge).with(1).argument }
+  it { should respond_to(:reject).with(1).argument }
+  it { should respond_to :queue_options }
+end

@@ -1,0 +1,69 @@
+image: ruby:2.7
+
+pipelines:
+  tags:
+    "v*":
+      - step:
+          name: Rubocop
+          caches:
+            - bundler
+          script:
+            - gem install rubocop
+            - gem update rubocop
+            - rubocop
+      - step:
+          name: RSpec
+          caches:
+            - bundler
+          script:
+            - gem install bundler
+            - gem update bundler
+            - bundle update
+            - bundle exec rspec
+      - step:
+          name: Push to RubyGems
+          deployment: RubyGems
+          script:
+            - gem install bundler gem-release rspec
+            - bundle install
+            - (umask  077 ; echo $gem_creds | base64 --decode > ~/.gem/credentials)
+            - gem release
+          artifacts:
+            - pkg/**
+  branches:
+    master:
+      - step:
+          caches:
+            - bundler
+          script:
+            - gem install rubocop
+            - gem update rubocop
+            - rubocop
+      - step:
+          caches:
+            - bundler
+          script:
+            - gem install bundler
+            - gem update bundler
+            - bundle update
+            - bundle exec rspec
+    develop:
+      - step:
+          caches:
+            - bundler
+          script:
+            - gem install rubocop
+            - gem update rubocop
+            - rubocop
+      - step:
+          caches:
+            - bundler
+          script:
+            - gem install bundler
+            - gem update bundler
+            - bundle update
+            - bundle exec rspec
+
+definitions:
+  caches:
+    bundler: /usr/local/bundle

@@ -1,0 +1,24 @@
+module Legion
+  module Transport
+    class Queue
+      def initialize(**opts)
+      end
+
+      def queue_name
+        'test_queue'
+      end
+
+      def acknowledge(delivery_tag)
+        true
+      end
+
+      def reject(delivery_tag, requeue: false, **)
+        true
+      end
+
+      def queue_options
+        Concurrent::Hash.new
+      end
+    end
+  end
+end

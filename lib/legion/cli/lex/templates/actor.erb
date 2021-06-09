@@ -1,0 +1,6 @@
+module Legion::Extensions::<%= config[:lex].split('_').collect(&:capitalize).join %>
+  module Actor
+    class <%= config[:name].split('_').collect(&:capitalize).join %> < Legion::Extensions::Actors::<%= config[:type].capitalize %>
+    end
+  end
+end

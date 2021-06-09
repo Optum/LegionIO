@@ -1,0 +1,11 @@
+module Legion
+  module Extensions
+    module <%= config[:lex].split('_').collect(&:capitalize).join %>
+      module Runners
+        module <%= config[:name].split('_').collect(&:capitalize).join %>
+          extend Legion::Extensions::Helpers::Lex if Legion::Extensions.const_defined? 'Helpers::Lex'
+        end
+      end
+    end
+  end
+end

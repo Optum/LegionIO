@@ -1,0 +1,11 @@
+require 'spec_helper'
+require 'legion/extensions/<%= config[:lex] %>/runners/<%= config[:name] %>'
+
+RSpec.describe Legion::Extensions::<%= config[:lex].split('_').collect(&:capitalize).join %>::Runners::<%= config[:name].capitalize %> do
+  it { should be_a Module }
+  Legion::Extensions::<%= config[:lex].capitalize %>::Runners::<%= config[:name].split('_').collect(&:capitalize).join %>.extend Legion::Extensions::<%= config[:lex].split('_').collect(&:capitalize).join %>::Runners::<%= config[:name].split('_').collect(&:capitalize).join %>
+
+  describe 'Functions should work with arguments' do
+    let(:test_class) { Class.new { extend Legion::Extensions::<%= config[:lex].split('_').collect(&:capitalize).join %>::Runners::<%= config[:name].split('_').collect(&:capitalize).join %> } }
+  end
+end
