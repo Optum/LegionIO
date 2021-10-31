@@ -4,10 +4,11 @@ module Legion
   module Extensions
     module Data
       class Migrator < Sequel::IntegerMigrator
-        def initialize(path, extension, _lex_name, **)
-          Legion::Logging.fatal @extension
+        def initialize(path, extension, lex_name, **)
           @path = path
           @extension = extension
+          @lex_name = lex_name
+          schema_dataset
           super(Legion::Data::Connection.sequel, path)
         end
 
@@ -21,9 +22,9 @@ module Legion
 
         def schema_dataset
           dataset = Legion::Data::Connection.sequel.from(default_schema_table).where(namespace: @extension)
-          return dataset unless dataset.count.positive?
+          return dataset if dataset.count.positive?
 
-          Legion::Logging.unknown Legion::Data::Model::Extension.insert(active: 1, namespace: @extension, extension: lex_name)
+          Legion::Data::Model::Extension.insert(active: 1, namespace: @extension, name: @lex_name)
           Legion::Data::Connection.sequel.from(default_schema_table).where(namespace: @extension)
         end
         alias ds schema_dataset

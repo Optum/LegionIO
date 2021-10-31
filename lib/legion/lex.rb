@@ -63,15 +63,16 @@ module Legion
         template('cli/lex/templates/base/gemspec.erb', "#{filename}/#{filename}.gemspec", vars)
         template('cli/lex/templates/base/gemfile.erb', "#{filename}/Gemfile", vars)
         template('cli/lex/templates/base/gitignore.erb', "#{filename}/.gitignore", vars)
-        template('cli/lex/templates/base/lic.erb', "#{filename}/LICENSE.txt", vars)
-        template('cli/lex/templates/base/rakefile.erb', "#{filename}/Rakefile", vars)
+        template('cli/lex/templates/base/lic.erb', "#{filename}/LICENSE", vars)
         template('cli/lex/templates/base/rubocop.yml.erb', "#{filename}/.rubocop.yml", vars)
         template('cli/lex/templates/base/readme.md.erb', "#{filename}/README.md", **vars)
         template('cli/lex/templates/base/lex.erb', "#{filename}/lib/legion/extensions/#{name}.rb", vars)
         template('cli/lex/templates/base/version.erb', "#{filename}/lib/legion/extensions/#{name}/version.rb", vars)
-        template('cli/lex/templates/base/bitbucket.yml.erb', "#{filename}/bitbucket-pipelines.yml", vars) if options[:pipeline]
         template('cli/lex/templates/base/spec_helper.rb.erb', "#{filename}/spec/spec_helper.rb", vars)
         template('cli/lex/templates/base/lex_spec.erb', "#{filename}/spec/legion/#{name}_spec.rb", vars)
+
+        template('cli/lex/templates/base/github_rspec.yml.erb', "#{filename}/.github/workflows/rspec.yml", vars)
+        template('cli/lex/templates/base/github_rubocop.yml.erb', "#{filename}/.github/workflows/rubocop.yml", vars)
 
         return if !options[:git_init] && !options[:bundle_install]
 
