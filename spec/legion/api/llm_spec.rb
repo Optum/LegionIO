@@ -437,10 +437,10 @@ RSpec.describe 'LLM API routes' do
               ],
               openai:    [
                 {
-                  model:       'gpt-4.1',
-                  type:        :chat,
-                  instance_id: 'frontier-openai',
-                  health:      { circuit_state: 'open', adjustment: -50 }
+                  'model'       => 'gpt-4.1',
+                  'type'        => :chat,
+                  'instance_id' => 'frontier-openai',
+                  'health'      => { 'circuit_state' => 'open', 'adjustment' => -50 }
                 }
               ]
             }
@@ -466,6 +466,8 @@ RSpec.describe 'LLM API routes' do
                                            offerings:  1)
         expect(providers.first[:models]).to eq(['claude-sonnet-4-6'])
         expect(providers.first[:instances]).to eq(['bedrock-east-2'])
+        expect(providers.last[:models]).to eq(['gpt-4.1'])
+        expect(providers.last[:instances]).to eq(['frontier-openai'])
         expect(body[:data][:summary]).to include(total: 2, closed: 1, open: 1, half_open: 0)
       end
     end

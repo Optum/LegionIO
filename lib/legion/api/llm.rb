@@ -43,7 +43,8 @@ module Legion
 
                 groups.map do |provider, offerings|
                   provider_offerings = Array(offerings)
-                  health = provider_offerings.map { |offering| offering[:health] }.find { |entry| entry.is_a?(Hash) } || {}
+                  health = provider_offerings.map { |offering| offering_value(offering, :health) }
+                                             .find { |entry| entry.is_a?(Hash) } || {}
                   circuit = health[:circuit_state] || health['circuit_state'] || 'unknown'
                   {
                     provider:   provider.to_s,
@@ -51,9 +52,11 @@ module Legion
                     adjustment: health[:adjustment] || health['adjustment'] || 0,
                     healthy:    circuit.to_s != 'open',
                     offerings:  provider_offerings.size,
-                    models:     provider_offerings.map { |offering| offering[:model] }.compact.uniq,
-                    types:      provider_offerings.map { |offering| offering[:type] }.compact.uniq,
-                    instances:  provider_offerings.map { |offering| offering[:provider_instance] || offering[:instance_id] }.compact.uniq
+                    models:     provider_offerings.map { |offering| offering_value(offering, :model) }.compact.uniq,
+                    types:      provider_offerings.map { |offering| offering_value(offering, :type) }.compact.uniq,
+                    instances:  provider_offerings.map do |offering|
+                      offering_value(offering, :provider_instance) || offering_value(offering, :instance_id)
+                    end.compact.uniq
                   }
                 end
               elsif defined?(Legion::Extensions::Llm::Gateway::Runners::ProviderStats)
@@ -89,6 +92,12 @@ module Legion
               else
                 halt 503, json_error('providers_unavailable', 'LLM provider inventory is not loaded', status_code: 503)
               end
+            end
+
+            define_method(:offering_value) do |offering, key|
+              next unless offering.respond_to?(:[])
+
+              offering[key] || offering[key.to_s]
             end
 
             define_method(:ruby_llm_tool_base) do
