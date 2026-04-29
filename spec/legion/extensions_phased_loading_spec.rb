@@ -185,8 +185,17 @@ RSpec.describe Legion::Extensions do
     it 'allows local legion-llm path override for unreleased PR integration testing' do
       gemfile = File.read(File.expand_path('../../Gemfile', __dir__))
 
-      expect(gemfile).to include("ENV.fetch('LEGION_LLM_PATH', '../legion-llm')")
+      expect(gemfile).to include("local_gem_path('legion-llm', '../legion-llm'")
+      expect(gemfile).to include("'lib/legion/llm/version.rb', '>= 0.8.47'")
       expect(gemfile).to include("gem 'legion-llm', path: legion_llm_path")
+    end
+
+    it 'allows local legion-tty path override for unreleased PR integration testing' do
+      gemfile = File.read(File.expand_path('../../Gemfile', __dir__))
+
+      expect(gemfile).to include("local_gem_path('legion-tty', '../legion-tty'")
+      expect(gemfile).to include("'lib/legion/tty/version.rb', '>= 0.5.4'")
+      expect(gemfile).to include("gem 'legion-tty', path: legion_tty_path")
     end
 
     it 'wires hosted lex-llm provider gems for local development' do

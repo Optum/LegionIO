@@ -4,10 +4,38 @@ source 'https://rubygems.org'
 
 gemspec
 
+def local_gem_version(path, version_file)
+  version_path = File.expand_path(File.join(path, version_file), __dir__)
+  return unless File.file?(version_path)
+
+  version_source = File.read(version_path)
+  version_source[/VERSION\s*=\s*['"]([^'"]+)['"]/, 1]
+end
+
+def local_gem_satisfies?(path, version_file, requirement)
+  version = local_gem_version(path, version_file)
+  version && Gem::Requirement.new(requirement).satisfied_by?(Gem::Version.new(version))
+end
+
+def local_gem_path(name, default_path, version_file, requirement)
+  env_name = "#{name.upcase.tr('-', '_')}_PATH"
+  env_path = ENV.fetch(env_name, nil)
+  return env_path if env_path && File.exist?(File.expand_path(env_path, __dir__))
+
+  return unless File.exist?(File.expand_path(default_path, __dir__))
+  return unless local_gem_satisfies?(default_path, version_file, requirement)
+
+  default_path
+end
+
 gem 'legion-data', path: '../legion-data' if File.exist?(File.expand_path('../legion-data', __dir__))
 gem 'legion-gaia', path: '../legion-gaia' if File.exist?(File.expand_path('../legion-gaia', __dir__))
-legion_llm_path = ENV.fetch('LEGION_LLM_PATH', '../legion-llm')
-gem 'legion-llm', path: legion_llm_path if File.exist?(File.expand_path(legion_llm_path, __dir__))
+if (legion_llm_path = local_gem_path('legion-llm', '../legion-llm', 'lib/legion/llm/version.rb', '>= 0.8.47'))
+  gem 'legion-llm', path: legion_llm_path
+end
+if (legion_tty_path = local_gem_path('legion-tty', '../legion-tty', 'lib/legion/tty/version.rb', '>= 0.5.4'))
+  gem 'legion-tty', path: legion_tty_path
+end
 gem 'legion-logging', path: '../legion-logging' if File.exist?(File.expand_path('../legion-logging', __dir__))
 gem 'legion-mcp', path: '../legion-mcp' if File.exist?(File.expand_path('../legion-mcp', __dir__))
 gem 'legion-settings', path: '../legion-settings' if File.exist?(File.expand_path('../legion-settings', __dir__))

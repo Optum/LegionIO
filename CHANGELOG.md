@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.9.17] - 2026-04-29
+
+### Fixed
+- LegionIO now requires `legion-llm >= 0.8.47` and only uses a local sibling `legion-llm` checkout when it satisfies that release floor, preventing stale local worktrees from breaking Bundler resolution.
+
 ## [1.9.16] - 2026-04-28
 
 ### Fixed
