@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.9.18] - 2026-04-29
+
+### Fixed
+- API-submitted LLM tools now build native `Legion::LLM::Types::ToolDefinition` objects instead of attempting to require RubyLLM at runtime.
+- Provider route coverage now locks LegionIO's `/api/llm/providers` compatibility response ahead of later colliding LLM library route registrations.
+
 ## [1.9.17] - 2026-04-29
 
 ### Fixed

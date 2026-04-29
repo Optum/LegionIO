@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
 require 'securerandom'
-require 'open3'
-require 'resolv'
-require 'ipaddr'
-require 'uri'
 
 module Legion
   class API < Sinatra::Base
@@ -100,104 +96,15 @@ module Legion
               offering[key] || offering[key.to_s]
             end
 
-            define_method(:ruby_llm_tool_base) do
-              return RubyLLM::Tool if defined?(RubyLLM::Tool)
-
-              require 'ruby_llm'
-              return RubyLLM::Tool if defined?(RubyLLM::Tool)
-
-              nil
-            rescue LoadError => e
-              Legion::Logging.warn("[llm][api] RubyLLM tool base unavailable: #{e.message}") if defined?(Legion::Logging)
-              nil
-            end
-
             define_method(:build_client_tool_class) do |tname, tdesc, tschema|
-              tool_base = ruby_llm_tool_base
-              unless tool_base
-                Legion::Logging.warn("[llm][api] skipping client tool #{tname}: RubyLLM::Tool unavailable") if defined?(Legion::Logging)
-                next nil
-              end
+              require 'legion/llm/types/tool_definition' unless defined?(Legion::LLM::Types::ToolDefinition)
 
-              klass = Class.new(tool_base) do
-                description tdesc
-                define_method(:name) { tname }
-                tool_ref = tname
-                define_method(:execute) do |**kwargs|
-                  case tool_ref
-                  when 'sh'
-                    cmd = kwargs[:command] || kwargs[:cmd] || kwargs.values.first.to_s
-                    output, status = ::Open3.capture2e(cmd, chdir: Dir.pwd)
-                    "exit=#{status.exitstatus}\n#{output}"
-                  when 'file_read'
-                    path = kwargs[:path] || kwargs[:file_path] || kwargs.values.first.to_s
-                    ::File.exist?(path) ? ::File.read(path, encoding: 'utf-8') : "File not found: #{path}"
-                  when 'file_write'
-                    path = kwargs[:path] || kwargs[:file_path]
-                    content = kwargs[:content] || kwargs[:contents]
-                    ::File.write(path, content)
-                    "Written #{content.to_s.bytesize} bytes to #{path}"
-                  when 'file_edit'
-                    path = kwargs[:path] || kwargs[:file_path]
-                    old_text = kwargs[:old_text] || kwargs[:search]
-                    new_text = kwargs[:new_text] || kwargs[:replace]
-                    content = ::File.read(path, encoding: 'utf-8')
-                    content.sub!(old_text, new_text)
-                    ::File.write(path, content)
-                    "Edited #{path}"
-                  when 'list_directory'
-                    path = kwargs[:path] || kwargs[:dir] || Dir.pwd
-                    Dir.entries(path).reject { |e| e.start_with?('.') }.sort.join("\n")
-                  when 'grep'
-                    pattern = kwargs[:pattern] || kwargs[:query] || kwargs.values.first.to_s
-                    path = kwargs[:path] || Dir.pwd
-                    output, = ::Open3.capture2e('grep', '-rn', '--include=*.rb', pattern, path)
-                    output.lines.first(50).join
-                  when 'glob'
-                    pattern = kwargs[:pattern] || kwargs.values.first.to_s
-                    Dir.glob(pattern).first(100).join("\n")
-                  when 'web_fetch'
-                    url = kwargs[:url] || kwargs.values.first.to_s
-                    raw_length = (kwargs[:maxLength] || kwargs[:max_length])&.to_i
-                    max_length = raw_length&.positive? ? raw_length : nil
-                    parsed = begin
-                      URI.parse(url)
-                    rescue StandardError
-                      nil
-                    end
-                    raise 'Invalid or non-HTTP URL' unless parsed.is_a?(URI::HTTP)
-
-                    addr = begin
-                      ::Resolv.getaddress(parsed.host)
-                    rescue StandardError
-                      nil
-                    end
-                    if addr
-                      ip = ::IPAddr.new(addr)
-                      raise 'SSRF: private/loopback targets are not permitted' if
-                        ip.loopback? || ip.private? || ip.link_local?
-                    end
-                    require 'legion/cli/chat/web_fetch'
-                    content = Legion::CLI::Chat::WebFetch.fetch(url)
-                    max_length ? content[0, max_length] : content
-                  when 'web_search'
-                    query = kwargs[:query] || kwargs.values.first.to_s
-                    raw_results = (kwargs[:max_results] || kwargs[:maxResults]).to_i
-                    max_results = raw_results.positive? ? [raw_results, 50].min : 5
-                    require 'legion/cli/chat/web_search'
-                    results = Legion::CLI::Chat::WebSearch.search(query, max_results: max_results,
-                                                                         auto_fetch:  false)
-                    results[:results].map { |r| "### #{r[:title]}\n#{r[:url]}\n#{r[:snippet]}" }.join("\n\n")
-                  else
-                    "Tool #{tool_ref} is not executable server-side. Use a legion_ prefixed tool instead."
-                  end
-                rescue StandardError => e
-                  Legion::Logging.log_exception(e, payload_summary: "client tool #{tool_ref} failed", component_type: :api)
-                  "Tool error: #{e.message}"
-                end
-              end
-              klass.params(tschema) if tschema.is_a?(Hash) && tschema[:properties]
-              klass
+              Legion::LLM::Types::ToolDefinition.build(
+                name:        tname,
+                description: tdesc,
+                parameters:  tschema || {},
+                source:      { type: :client, executable: true }
+              )
             rescue StandardError => e
               Legion::Logging.log_exception(e, payload_summary: "build_client_tool_class failed for #{tname}", component_type: :api)
               nil

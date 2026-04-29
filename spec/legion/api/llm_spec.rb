@@ -420,6 +420,37 @@ RSpec.describe 'LLM API routes' do
         expect(body[:data][:providers]).to eq([])
         expect(body[:data][:summary]).to include(total: 0, closed: 0, open: 0, half_open: 0)
       end
+
+      it 'keeps the LegionIO provider route ahead of colliding library routes registered later' do
+        colliding_routes = Module.new do
+          def self.registered(app)
+            app.get '/api/llm/providers' do
+              json_response({ providers: [{ provider: 'legion-llm' }],
+                              summary:   { total: 1, routing_enabled: true } })
+            end
+          end
+        end
+
+        collision_app = Class.new(Sinatra::Base) do
+          helpers Legion::API::Helpers
+          helpers Legion::API::Validators
+
+          set :show_exceptions, false
+          set :raise_errors, false
+          set :host_authorization, permitted: :any
+
+          register Legion::API::Routes::Llm
+          register colliding_routes
+        end
+
+        response = Rack::MockRequest.new(collision_app).get('/api/llm/providers')
+        body = Legion::JSON.load(response.body)
+
+        expect(response.status).to eq(200)
+        expect(body[:data][:providers]).to eq([])
+        expect(body[:data][:summary]).to include(total: 0, closed: 0, open: 0, half_open: 0)
+        expect(body[:data][:summary]).not_to include(:routing_enabled)
+      end
     end
 
     context 'when native provider inventory is loaded' do
