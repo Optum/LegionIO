@@ -451,6 +451,7 @@ module Legion
       log.info 'Setting up Legion::LLM'
       require 'legion/llm'
       Legion::Settings.merge_settings('llm', Legion::LLM::Settings.default)
+      preload_llm_providers
       Legion::LLM.start
       log.info 'Legion::LLM started'
     rescue LoadError => e
@@ -458,6 +459,40 @@ module Legion
       log.info 'Legion::LLM gem is not installed, starting without LLM support'
     rescue StandardError => e
       handle_exception(e, level: :warn, operation: 'service.setup_llm')
+    end
+
+    def preload_llm_providers
+      require 'legion/extensions/llm'
+      gems = llm_provider_gems
+      gems.each do |gem_name, require_path|
+        require require_path
+        log.debug "[service] loaded #{gem_name}"
+      rescue LoadError => e
+        log.warn "[service] #{gem_name} failed to load: #{e.message}"
+      rescue StandardError => e
+        handle_exception(e, level: :warn, operation: "service.preload_llm_provider.#{gem_name}")
+      end
+      registered = defined?(Legion::LLM::Call::Registry) ? Legion::LLM::Call::Registry.all_instances : []
+      log.info "[service] llm providers preloaded gems=#{gems.size} instances=#{registered.size}"
+    rescue LoadError => e
+      handle_exception(e, level: :warn, operation: 'service.preload_llm_providers', availability: 'lex-llm not installed')
+    rescue StandardError => e
+      handle_exception(e, level: :warn, operation: 'service.preload_llm_providers')
+    end
+
+    def llm_provider_gems
+      specs = if defined?(Bundler)
+                Bundler.load.specs.map { |s| s.respond_to?(:name) ? s.name : s[:name].to_s }
+              else
+                Gem::Specification.latest_specs.map(&:name)
+              end
+      specs.filter_map do |name|
+        next unless name.start_with?('lex-llm-') && name != 'lex-llm-ledger'
+
+        provider_name = name.delete_prefix('lex-llm-').tr('-', '_')
+        require_path = "legion/extensions/llm/#{provider_name}"
+        [name, require_path]
+      end
     end
 
     def setup_gaia
