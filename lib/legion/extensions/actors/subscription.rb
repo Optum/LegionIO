@@ -164,11 +164,14 @@ module Legion
           on_cancellation = block { cancel }
 
           @consumer = @queue.subscribe(manual_ack: manual_ack, block: false, consumer_tag: consumer_tag, on_cancellation: on_cancellation) do |*rmq_message|
-            payload = rmq_message.pop
-            metadata = rmq_message.last
-            delivery_info = rmq_message.first
-
+            delivery_info = nil
+            metadata = nil
+            payload = nil
             fn = nil
+
+            delivery_info = rmq_message.first
+            metadata = rmq_message.last
+            payload = rmq_message.pop
             message = process_message(payload, metadata, delivery_info)
             fn = find_function(message)
             log.debug "[Subscription] message received: #{lex_name}/#{fn}" if defined?(log)
@@ -197,11 +200,11 @@ module Legion
           rescue UnrecoverableMessageError => e
             handle_exception(e, lex: lex_name, fn: fn)
             log.warn "[Subscription] dead-lettering unrecoverable message for #{lex_name}/#{fn}: #{e.message}"
-            @queue.reject(delivery_info.delivery_tag, requeue: false) if manual_ack
+            @queue.reject(delivery_info.delivery_tag, requeue: false) if manual_ack && delivery_info
           rescue StandardError => e
             handle_exception(e)
             log.warn "[Subscription] retry-or-dlq for #{lex_name}/#{fn}"
-            reject_or_retry(delivery_info, metadata, payload) if manual_ack
+            reject_or_retry(delivery_info, metadata, payload) if manual_ack && delivery_info
           end
           log.info "[Subscription] subscribed: #{lex_name}/#{runner_name} (consumer registered)" if defined?(log)
         end
