@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.9.19] - 2026-05-05
+
+### Added
+- `UnrecoverableMessageError` for messages that should be dead-lettered immediately (e.g., missing IV header on encrypted messages) instead of retried.
+- Subscription actors now extract `message_id` and `correlation_id` from AMQP metadata into the message hash for downstream tracing.
+- Runner builder auto-includes `Helpers::Lex` into runner modules when available, ensuring all runners have LEX metadata helpers.
+
+### Fixed
+- Encrypted messages (`encrypted/cs`) with a missing `iv` header now raise `UnrecoverableMessageError` and are dead-lettered rather than crashing with a nil argument to `Crypt.decrypt`.
+
 ## [1.9.18] - 2026-04-29
 
 ### Fixed

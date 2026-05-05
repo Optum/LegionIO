@@ -24,6 +24,7 @@ module Legion
             runner_class = "#{lex_class}::Runners::#{runner_name.split('_').collect(&:capitalize).join}"
             loaded_runner = Kernel.const_get(runner_class)
             loaded_runner.extend(Legion::Extensions::Definitions) unless loaded_runner.respond_to?(:definition)
+            ensure_lex_helpers(loaded_runner, runner_class)
             Legion::Logging.debug "[Runners] registered: #{runner_class}" if defined?(Legion::Logging)
             @runners[runner_name.to_sym] = build_runner_entry(runner_name, runner_class, loaded_runner, file)
             populate_runner_methods(runner_name, loaded_runner)
@@ -74,6 +75,19 @@ module Legion
 
         def runner_files
           @runner_files ||= find_files('runners')
+        end
+
+        private
+
+        def ensure_lex_helpers(runner_module, runner_class)
+          return unless Legion::Extensions.const_defined?(:Helpers, false) &&
+                        Legion::Extensions::Helpers.const_defined?(:Lex, false)
+
+          lex_mod = Legion::Extensions::Helpers::Lex
+          return if runner_module.ancestors.include?(lex_mod)
+
+          runner_module.include(lex_mod)
+          Legion::Logging.info "[Runners] auto-included Helpers::Lex into #{runner_class}" if defined?(Legion::Logging)
         end
       end
     end
