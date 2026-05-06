@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.9.22] - 2026-05-06
+
+### Changed
+- Hot-reloading a `lex-llm-*` provider extension now asks `Legion::LLM::Call::Providers` to rediscover loaded provider modules, keeping LLM provider instances aligned after extension updates.
+- Bumped the packaged `legion-llm` dependency floor to `>= 0.9.1` for LLM-owned provider registration and reload-safe registry rebuilds.
+
 ## [1.9.21] - 2026-05-06
 
 ### Changed

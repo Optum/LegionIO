@@ -911,6 +911,7 @@ module Legion
         entry = @extensions&.find { |candidate| candidate[:gem_name] == gem_name }
         raise "#{gem_name} failed to reload" if entry && !load_extension(entry)
 
+        refresh_llm_provider_registry(gem_name)
         update_extension_handle(gem_name, state: :running, reload_state: :idle, last_error: nil,
                                           latest_installed_version: latest_installed_version(gem_name))
         true
@@ -921,6 +922,13 @@ module Legion
 
       def extension_handle_registry
         @extension_handle_registry ||= HandleRegistry.new
+      end
+
+      def refresh_llm_provider_registry(gem_name)
+        return unless gem_name.start_with?('lex-llm-') && gem_name != 'lex-llm-ledger'
+        return unless defined?(Legion::LLM::Call::Providers)
+
+        Legion::LLM::Call::Providers.rediscover_all_providers
       end
 
       def transition_loaded_extensions(state)

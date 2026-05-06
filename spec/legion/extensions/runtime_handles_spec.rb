@@ -11,6 +11,7 @@ RSpec.describe Legion::Extensions do
   after do
     described_class.reset_runtime_handles!
     described_class.instance_variable_set(:@loaded_extensions, nil)
+    described_class.instance_variable_set(:@extensions, nil)
   end
 
   it 'exposes extension handles without requiring callers to read ivars' do
@@ -83,5 +84,20 @@ RSpec.describe Legion::Extensions do
     expect(handle.last_error).to be_nil
     expect(described_class).to have_received(:unregister_capabilities).with('lex-example')
     expect(Legion::Ingress).to have_received(:reset_runner_cache!)
+  end
+
+  it 'refreshes the LLM provider registry after hot-reloading a lex-llm provider extension' do
+    providers = Module.new do
+      def self.rediscover_all_providers; end
+    end
+    stub_const('Legion::LLM::Call::Providers', providers)
+    allow(providers).to receive(:rediscover_all_providers)
+    allow(described_class).to receive(:unregister_capabilities)
+    allow(described_class).to receive(:load_extension).and_return(true)
+    described_class.instance_variable_set(:@extensions, [{ gem_name: 'lex-llm-vllm' }])
+
+    expect(described_class.reload_extension('lex-llm-vllm')).to be true
+
+    expect(providers).to have_received(:rediscover_all_providers)
   end
 end
