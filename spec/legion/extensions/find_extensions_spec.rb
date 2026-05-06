@@ -214,6 +214,18 @@ RSpec.describe Legion::Extensions do
       entry = result.first
       expect(entry).to include(:gem_name, :category, :tier, :segments, :const_path, :require_path)
     end
+
+    it 'derives a nested settings path for hyphenated nested extensions' do
+      entry = described_class.build_extension_entry('lex-foo-bar', :default, {}, nesting: false)
+      expect(entry[:const_path]).to eq('Legion::Extensions::Foo::Bar')
+      expect(entry[:settings_path]).to eq(%i[foo bar])
+    end
+
+    it 'derives a flat settings path for underscored flat extensions' do
+      entry = described_class.build_extension_entry('lex-foo_bar', :default, {}, nesting: false)
+      expect(entry[:const_path]).to eq('Legion::Extensions::FooBar')
+      expect(entry[:settings_path]).to eq([:foo_bar])
+    end
   end
 
   describe '.check_reserved_words' do

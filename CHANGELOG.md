@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.9.20] - 2026-05-06
+
+### Fixed
+- Nested LEX extensions now merge default settings into their nested `extensions` path (for example `lex-foo-bar` -> `extensions.foo.bar`) while underscored flat extensions continue to use the flat key (for example `lex-foo_bar` -> `extensions.foo_bar`).
+- Extension load-time settings checks now use the discovered settings path for nested extensions, keeping `enabled`, `min_version`, `workers`, and `remote_invocable` overrides aligned with where defaults are merged.
+
 ## [1.9.19] - 2026-05-05
 
 ### Added

@@ -143,12 +143,9 @@ module Legion
       def load_phase_extensions(phase_num, entries)
         eligible = entries.filter_map do |entry|
           gem_name = entry[:gem_name]
-          ext_name = entry[:require_path].split('/').last
+          ext_settings = extension_settings_for_entry(entry)
 
-          if Legion::Settings[:extensions].key?(ext_name.to_sym) &&
-             Legion::Settings[:extensions][ext_name.to_sym].is_a?(Hash) &&
-             Legion::Settings[:extensions][ext_name.to_sym].key?(:enabled) &&
-             !Legion::Settings[:extensions][ext_name.to_sym][:enabled]
+          if ext_settings.is_a?(Hash) && ext_settings.key?(:enabled) && !ext_settings[:enabled]
             Legion::Logging.info "Skipping #{gem_name} because it's disabled"
             next
           end
@@ -239,7 +236,7 @@ module Legion
         extension.extend Legion::Extensions::Core unless extension.singleton_class.include?(Legion::Extensions::Core)
 
         ext_name = entry[:segments].join('_')
-        ext_settings = Legion::Settings[:extensions][ext_name.to_sym]
+        ext_settings = extension_settings_for_entry(entry)
         min_version = ext_settings[:min_version] if ext_settings.is_a?(Hash)
         if min_version.is_a?(String)
           begin
@@ -427,8 +424,9 @@ module Legion
       end
 
       def hook_actor(extension:, extension_name:, actor_class:, size: 1, **opts)
-        size = if Legion::Settings[:extensions].key?(extension_name.to_sym) && Legion::Settings[:extensions][extension_name.to_sym].key?(:workers)
-                 Legion::Settings[:extensions][extension_name.to_sym][:workers]
+        ext_settings = extension_settings_for_actor(extension_name, opts[:settings_path])
+        size = if ext_settings.is_a?(Hash) && ext_settings.key?(:workers)
+                 ext_settings[:workers]
                elsif size.is_a? Integer
                  size
                else
@@ -595,7 +593,7 @@ module Legion
 
       def resolve_subscription_worker_count(actor_hash)
         ext_name = actor_hash[:extension_name]
-        ext_settings = Legion::Settings.dig(:extensions, ext_name.to_sym)
+        ext_settings = extension_settings_for_actor(ext_name, actor_hash[:settings_path])
         if ext_settings.is_a?(Hash) && ext_settings.key?(:workers)
           ext_settings[:workers]
         elsif actor_hash[:size].is_a?(Integer)
@@ -606,8 +604,7 @@ module Legion
       end
 
       def resolve_remote_invocable(extension_name, opts = {})
-        ext_key = extension_name.to_sym
-        ext_settings = Legion::Settings.dig(:extensions, ext_key)
+        ext_settings = extension_settings_for_actor(extension_name, opts[:settings_path])
         runner_name = opts[:actor_name]&.to_sym
 
         # 1. Per-runner settings override
@@ -955,6 +952,21 @@ module Legion
         nil
       end
 
+      def extension_settings_for_entry(entry)
+        extension_settings_for_path(entry[:settings_path])
+      end
+
+      def extension_settings_for_actor(extension_name, settings_path)
+        extension_settings_for_path(settings_path) || Legion::Settings.dig(:extensions, extension_name.to_sym)
+      end
+
+      def extension_settings_for_path(settings_path)
+        path = Array(settings_path).map(&:to_sym)
+        return nil if path.empty?
+
+        Legion::Settings.dig(:extensions, *path)
+      end
+
       def reset_runner_cache
         return unless defined?(Legion::Ingress) && Legion::Ingress.respond_to?(:reset_runner_cache!)
 
@@ -1119,7 +1131,16 @@ module Legion
         end
 
         { gem_name: gem_name, category: category, tier: tier,
-          segments: segments, const_path: const_path, require_path: require_path }
+          segments: segments, const_path: const_path, require_path: require_path,
+          settings_path: settings_path_for_entry(segments, nesting) }
+      end
+
+      def settings_path_for_entry(segments, nesting)
+        if nesting
+          segments.map(&:to_sym)
+        else
+          [segments.join('_').to_sym]
+        end
       end
 
       def probe_nesting(gem_name, segments)

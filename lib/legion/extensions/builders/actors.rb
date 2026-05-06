@@ -29,6 +29,7 @@ module Legion
             @actors[actor_name.to_sym] = {
               extension:      lex_class.to_s.downcase,
               extension_name: extension_name,
+              settings_path:  settings_path,
               actor_name:     actor_name,
               actor_class:    Kernel.const_get(actor_class),
               type:           'literal'
@@ -50,6 +51,7 @@ module Legion
             @actors[runner.to_sym] = {
               extension:      attr[:extension],
               extension_name: attr[:extension_name],
+              settings_path:  attr[:settings_path],
               actor_name:     attr[:runner_name],
               actor_class:    Kernel.const_get(actor_class),
               type:           'meta'

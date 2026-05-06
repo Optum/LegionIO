@@ -35,6 +35,7 @@ module Legion
           entry = {
             extension:       lex_class.to_s.downcase,
             extension_name:  extension_name,
+            settings_path:   settings_path,
             extension_class: lex_class,
             runner_name:     runner_name,
             runner_class:    runner_class,

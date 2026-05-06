@@ -4,6 +4,54 @@ require 'spec_helper'
 require 'tmpdir'
 
 RSpec.describe Legion::Extensions::Core do
+  describe '.build_settings' do
+    around do |example|
+      original_loader = Legion::Settings.instance_variable_get(:@loader)
+      Legion::Settings.instance_variable_set(:@loader, Legion::Settings::Loader.new)
+      example.run
+    ensure
+      Legion::Settings.instance_variable_set(:@loader, original_loader)
+    end
+
+    it 'merges nested extension defaults into the nested settings path' do
+      stub_const('Legion::Extensions::Foo', Module.new)
+      stub_const('Legion::Extensions::Foo::Bar', Module.new do
+        extend Legion::Extensions::Core
+
+        def self.default_settings
+          { enabled: true, runners: { ping: { desc: 'default' } } }
+        end
+      end)
+
+      Legion::Settings[:extensions][:foo] = { bar: { enabled: false } }
+
+      Legion::Extensions::Foo::Bar.build_settings
+
+      expect(Legion::Settings.dig(:extensions, :foo, :bar)).to include(
+        enabled: false,
+        runners: { ping: { desc: 'default' } }
+      )
+      expect(Legion::Settings.dig(:extensions, :foo_bar)).to be_nil
+    end
+
+    it 'keeps flat underscored extension defaults under the flat settings key' do
+      stub_const('Legion::Extensions::FooBar', Module.new do
+        extend Legion::Extensions::Core
+
+        def self.default_settings
+          { enabled: true, workers: 1 }
+        end
+      end)
+
+      Legion::Settings[:extensions][:foo_bar] = { enabled: false }
+
+      Legion::Extensions::FooBar.build_settings
+
+      expect(Legion::Settings.dig(:extensions, :foo_bar)).to include(enabled: false, workers: 1)
+      expect(Legion::Settings.dig(:extensions, :foo)).to be_nil
+    end
+  end
+
   describe '.sticky_tools?' do
     it 'returns true by default' do
       stub_const('Legion::Extensions::StickyTest', Module.new { extend Legion::Extensions::Core })
