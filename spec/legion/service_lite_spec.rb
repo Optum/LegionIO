@@ -21,4 +21,17 @@ RSpec.describe Legion::Service do
       expect(service.lite_mode?).to be true
     end
   end
+
+  describe '#setup_local_mode' do
+    it 'marks dev mode through the public settings writer in lite mode' do
+      service = described_class.allocate
+      allow(Legion::Mode).to receive(:lite?).and_return(true)
+      allow(service).to receive(:require).with('legion/transport/local')
+      allow(service).to receive(:require).with('legion/crypt/mock_vault')
+
+      expect(Legion::Settings).to receive(:set_prop).with(:dev, true)
+
+      service.__send__(:setup_local_mode)
+    end
+  end
 end

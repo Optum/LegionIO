@@ -28,28 +28,32 @@ def local_gem_path(name, default_path, version_file, requirement)
   default_path
 end
 
+gem 'legion-apollo', path: '../legion-apollo' if File.exist?(File.expand_path('../legion-apollo', __dir__))
 gem 'legion-data', path: '../legion-data' if File.exist?(File.expand_path('../legion-data', __dir__))
+gem 'legion-logging', path: '../legion-logging' if File.exist?(File.expand_path('../legion-logging', __dir__))
+gem 'legion-settings', path: '../legion-settings' if File.exist?(File.expand_path('../legion-settings', __dir__))
+if (legion_tty_path = local_gem_path('legion-tty', '../legion-tty', 'lib/legion/tty/version.rb', '>= 0.5.4'))
+  gem 'legion-tty', path: legion_tty_path
+end
+
 gem 'legion-gaia', path: '../legion-gaia' if File.exist?(File.expand_path('../legion-gaia', __dir__))
 if (legion_llm_path = local_gem_path('legion-llm', '../legion-llm', 'lib/legion/llm/version.rb', '>= 0.8.47'))
   gem 'legion-llm', path: legion_llm_path
 end
-if (legion_tty_path = local_gem_path('legion-tty', '../legion-tty', 'lib/legion/tty/version.rb', '>= 0.5.4'))
-  gem 'legion-tty', path: legion_tty_path
-end
-gem 'legion-logging', path: '../legion-logging' if File.exist?(File.expand_path('../legion-logging', __dir__))
 gem 'legion-mcp', path: '../legion-mcp' if File.exist?(File.expand_path('../legion-mcp', __dir__))
-gem 'legion-settings', path: '../legion-settings' if File.exist?(File.expand_path('../legion-settings', __dir__))
 
-gem 'legion-apollo', path: '../legion-apollo' if File.exist?(File.expand_path('../legion-apollo', __dir__))
-gem 'lex-agentic-memory', path: '../extensions-agentic/lex-agentic-memory' if File.exist?(File.expand_path('../extensions-agentic/lex-agentic-memory', __dir__))
+gem 'lex-kerberos'
+
+gem 'lex-apollo', path: '../extensions/lex-apollo' if File.exist?(File.expand_path('../extensions/lex-apollo', __dir__))
 gem 'lex-llm', path: '../extensions-ai/lex-llm' if File.exist?(File.expand_path('../extensions-ai/lex-llm', __dir__))
 gem 'lex-llm-ledger', path: '../extensions-ai/lex-llm-ledger' if File.exist?(File.expand_path('../extensions-ai/lex-llm-ledger', __dir__))
+
 %w[anthropic azure-foundry bedrock gemini mlx ollama openai vertex vllm].each do |provider|
   provider_path = "../extensions-ai/lex-llm-#{provider}"
   gem "lex-llm-#{provider}", path: provider_path if File.exist?(File.expand_path(provider_path, __dir__))
 end
-gem 'lex-llm-gateway', path: '../extensions/lex-llm-gateway' if File.exist?(File.expand_path('../extensions/lex-llm-gateway', __dir__))
-gem 'lex-microsoft_teams', path: '../extensions/lex-microsoft_teams' if File.exist?(File.expand_path('../extensions/lex-microsoft_teams', __dir__))
+
+# gem 'lex-microsoft_teams', path: '../extensions/lex-microsoft_teams' if File.exist?(File.expand_path('../extensions/lex-microsoft_teams', __dir__))
 
 gem 'pg'
 

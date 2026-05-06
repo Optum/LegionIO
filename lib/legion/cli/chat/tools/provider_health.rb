@@ -75,7 +75,7 @@ module Legion
           end
 
           def provider_stats_available?
-            native_provider_stats_available? || gateway_stats_available?
+            native_provider_stats_available?
           end
 
           def native_provider_stats_available?
@@ -83,9 +83,7 @@ module Legion
           end
 
           def provider_health_report
-            return native_provider_health_report if native_provider_stats_available?
-
-            stats_module.health_report
+            native_provider_health_report
           end
 
           def native_provider_health_report
@@ -113,8 +111,6 @@ module Legion
           end
 
           def provider_circuit_summary(report)
-            return stats_module.circuit_summary unless native_provider_stats_available?
-
             circuits = report.map { |entry| entry[:circuit].to_s }
             {
               total:     report.size,
@@ -126,8 +122,6 @@ module Legion
 
           def provider_detail(provider)
             provider_name = provider.to_s
-            return stats_module.provider_detail(provider: provider_name.to_sym) unless native_provider_stats_available?
-
             provider_health_report.find { |entry| entry[:provider] == provider_name } || {}
           end
 
@@ -135,14 +129,6 @@ module Legion
             return unless offering.respond_to?(:[])
 
             offering[key] || offering[key.to_s]
-          end
-
-          def gateway_stats_available?
-            defined?(Legion::Extensions::Llm::Gateway::Runners::ProviderStats)
-          end
-
-          def stats_module
-            Legion::Extensions::Llm::Gateway::Runners::ProviderStats
           end
         end
       end

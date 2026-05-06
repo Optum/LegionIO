@@ -435,7 +435,7 @@ Coordinated by [legion-gaia](https://github.com/LegionIO/legion-gaia), the cogni
 
 Powered by [legion-llm](https://github.com/LegionIO/legion-llm) with provider-neutral model offerings, local and fleet routing, hosted cloud providers, health tracking, metering, and automatic model discovery.
 
-`lex-llm-gateway` remains available only as legacy compatibility glue for older deployments. New `legion setup llm` and `legion setup agentic` installs use the native `legion-llm` / `lex-llm-*` stack and do not install the gateway by default.
+LLM API routes are mounted from `legion-llm` when available; LegionIO only hosts those route modules and does not provide a provider gateway fallback.
 
 ### Service Integrations (8 common + 15 additional)
 

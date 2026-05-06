@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [1.9.21] - 2026-05-06
+
+### Changed
+- LegionIO now mounts `Legion::LLM::Routes` through the library route selector when `legion-llm` is available, leaving LLM API ownership with `legion-llm` instead of registering partial fallback routes first.
+- LLM provider health API and CLI output now require native `Legion::LLM::Inventory` data and return a clear unavailable response when inventory is not loaded.
+- Bumped packaged dependency floors to `legion-llm >= 0.9.0` and `legion-data >= 1.8.0` for the coordinated LLM route/schema sweep.
+
+### Fixed
+- Lite and local mode startup now write development mode through the public `Legion::Settings.set_prop` API.
+
+### Removed
+- Removed active `lex-llm-gateway` fallback paths from LLM chat, provider health, extension catalog, role filtering, and README documentation.
+
 ## [1.9.20] - 2026-05-06
 
 ### Fixed

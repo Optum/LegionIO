@@ -757,7 +757,7 @@ module Legion
       end
 
       def legacy_ai_extension_names
-        %w[azure-ai bedrock claude foundry gemini llm-gateway ollama openai xai].freeze
+        %w[azure-ai bedrock claude foundry gemini ollama openai xai].freeze
       end
 
       def service_extension_names

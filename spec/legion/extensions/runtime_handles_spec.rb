@@ -50,15 +50,15 @@ RSpec.describe Legion::Extensions do
 
   it 'matches multi-segment extension modules to hyphenated lex handles' do
     ext_mod = Module.new do
-      def self.name = 'Legion::Extensions::Llm::Gateway'
+      def self.name = 'Legion::Extensions::Llm::Openai'
       def self.runner_modules = []
     end
-    described_class.const_set(:GatewayForSpec, ext_mod)
-    described_class.register_extension_handle('lex-llm-gateway', state: :running)
+    described_class.const_set(:OpenaiForSpec, ext_mod)
+    described_class.register_extension_handle('lex-llm-openai', state: :running)
 
     expect(described_class.loaded_extension_modules).to contain_exactly(ext_mod)
   ensure
-    described_class.send(:remove_const, :GatewayForSpec) if described_class.const_defined?(:GatewayForSpec, false)
+    described_class.send(:remove_const, :OpenaiForSpec) if described_class.const_defined?(:OpenaiForSpec, false)
   end
 
   it 'does not mark a gem loaded when require fails' do

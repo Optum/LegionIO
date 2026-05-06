@@ -19,12 +19,8 @@ RSpec.describe Legion::Extensions::Catalog::Available do
       )
     end
 
-    it 'marks lex-llm-gateway as legacy compatibility' do
-      expect(described_class.find('lex-llm-gateway')).to include(
-        name:        'lex-llm-gateway',
-        category:    'legacy',
-        description: 'Legacy LLM gateway compatibility'
-      )
+    it 'does not advertise lex-llm-gateway' do
+      expect(described_class.find('lex-llm-gateway')).to be_nil
     end
   end
 end

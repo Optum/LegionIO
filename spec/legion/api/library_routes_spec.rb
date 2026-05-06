@@ -7,6 +7,13 @@ require 'legion/api'
 RSpec.describe Legion::API do
   let(:api_class) { Class.new(described_class) }
 
+  it 'mounts legion-llm routes as the primary LLM route owner during API construction' do
+    source = File.read(File.expand_path('../../../lib/legion/api.rb', __dir__))
+
+    expect(source).to include("mount_library_routes('llm', Routes::Llm, 'Legion::LLM::Routes')")
+    expect(source).not_to include('register Routes::Llm')
+  end
+
   describe '.mount_library_routes' do
     it 'prefers loaded library route modules and tracks them in discovery' do
       llm_routes = Module.new
