@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.9.23] - 2026-05-07
+
+### Fixed
+- Fixed encrypted subscription handling to accept both string-keyed and symbol-keyed IV headers before decrypting `encrypted/cs` AMQP payloads.
+
 ## [1.9.22] - 2026-05-06
 
 ### Changed

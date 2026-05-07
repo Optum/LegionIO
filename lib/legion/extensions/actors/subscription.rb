@@ -120,7 +120,8 @@ module Legion
 
         def process_message(message, metadata, delivery_info) # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
           payload = if metadata.content_encoding && metadata.content_encoding == 'encrypted/cs'
-                      iv = metadata.headers&.dig('iv')
+                      headers = metadata.headers || {}
+                      iv = headers['iv'] || headers[:iv]
                       raise UnrecoverableMessageError, "encrypted/cs message missing iv header (#{lex_name}/#{runner_name})" if iv.nil?
 
                       Legion::Crypt.decrypt(message, iv)
