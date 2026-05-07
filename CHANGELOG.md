@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.9.25] - 2026-05-07
+
+### Fixed
+- Updated identity model references in `identity_audit.rb` and `identity/broker.rb` to use the portable namespace (`Identity::AuditLog`, `Identity::Principal`, `Identity::GroupMembership`) after legacy top-level identity models were removed from legion-data.
+
 ## [1.9.24] - 2026-05-07
 
 ### Changed
