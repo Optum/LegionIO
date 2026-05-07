@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.9.24] - 2026-05-07
+
+### Changed
+- Removed deprecated direct AI provider extensions (`lex-bedrock`, `lex-claude`, `lex-gemini`, `lex-ollama`, `lex-openai`) from the extension catalog; use their `lex-llm-*` counterparts instead.
+
 ## [1.9.23] - 2026-05-07
 
 ### Fixed
