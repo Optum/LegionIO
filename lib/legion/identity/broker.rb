@@ -275,7 +275,7 @@ module Legion
           return [] unless defined?(Legion::Data) && Legion::Data.respond_to?(:connected?) && Legion::Data.connected?
 
           model = begin
-            Legion::Data::Model::IdentityGroupMembership
+            Legion::Data::Model::Identity::GroupMembership
           rescue StandardError
             nil
           end
