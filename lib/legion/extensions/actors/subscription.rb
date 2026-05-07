@@ -9,6 +9,8 @@ require 'securerandom'
 module Legion
   module Extensions
     module Actors
+      class UnrecoverableMessageError < StandardError; end
+
       class Subscription
         extend Legion::Extensions::Actors::Dsl
         include Concurrent::Async
@@ -62,7 +64,7 @@ module Legion
           true
         end
 
-        def prepare
+        def prepare # rubocop:disable Metrics/AbcSize
           @queue = queue.new
           @queue.channel.prefetch(prefetch) if defined? prefetch
           consumer_tag = "#{Legion::Settings[:client][:name]}_#{lex_name}_#{runner_name}_#{SecureRandom.uuid}"
@@ -90,6 +92,10 @@ module Legion
             @queue.acknowledge(delivery_info.delivery_tag) if manual_ack
 
             cancel if Legion::Settings[:client][:shutting_down]
+          rescue UnrecoverableMessageError => e
+            handle_exception(e, lex: lex_name, fn: fn, routing_key: delivery_info.routing_key)
+            log.warn "[Subscription] dead-lettering unrecoverable message for #{lex_name}/#{fn}: #{e.message}"
+            @queue.reject(delivery_info.delivery_tag, requeue: false) if manual_ack
           rescue StandardError => e
             handle_exception(e, lex: lex_name, fn: fn, routing_key: delivery_info.routing_key)
             reject_or_retry(delivery_info, metadata, payload) if manual_ack
@@ -112,9 +118,13 @@ module Legion
           true
         end
 
-        def process_message(message, metadata, delivery_info)
+        def process_message(message, metadata, delivery_info) # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
           payload = if metadata.content_encoding && metadata.content_encoding == 'encrypted/cs'
-                      Legion::Crypt.decrypt(message, metadata.headers['iv'])
+                      headers = metadata.headers || {}
+                      iv = headers['iv'] || headers[:iv]
+                      raise UnrecoverableMessageError, "encrypted/cs message missing iv header (#{lex_name}/#{runner_name})" if iv.nil?
+
+                      Legion::Crypt.decrypt(message, iv)
                     elsif metadata.content_encoding && metadata.content_encoding == 'encrypted/pk'
                       Legion::Crypt.decrypt_from_keypair(metadata.headers[:public_key], message)
                     else
@@ -130,6 +140,9 @@ module Legion
             message = message.merge(metadata.headers.transform_keys(&:to_sym)) unless metadata.headers.nil?
             message[:routing_key] = delivery_info[:routing_key]
           end
+
+          message[:message_id] ||= metadata.message_id if metadata.respond_to?(:message_id) && metadata.message_id
+          message[:correlation_id] ||= metadata.correlation_id if metadata.respond_to?(:correlation_id) && metadata.correlation_id
 
           message[:timestamp] = (message[:timestamp_in_ms] / 1000).round if message.key?(:timestamp_in_ms) && !message.key?(:timestamp)
           message[:datetime] = Time.at(message[:timestamp].to_i).to_datetime.to_s if message.key?(:timestamp)
@@ -152,11 +165,14 @@ module Legion
           on_cancellation = block { cancel }
 
           @consumer = @queue.subscribe(manual_ack: manual_ack, block: false, consumer_tag: consumer_tag, on_cancellation: on_cancellation) do |*rmq_message|
-            payload = rmq_message.pop
-            metadata = rmq_message.last
-            delivery_info = rmq_message.first
-
+            delivery_info = nil
+            metadata = nil
+            payload = nil
             fn = nil
+
+            delivery_info = rmq_message.first
+            metadata = rmq_message.last
+            payload = rmq_message.pop
             message = process_message(payload, metadata, delivery_info)
             fn = find_function(message)
             log.debug "[Subscription] message received: #{lex_name}/#{fn}" if defined?(log)
@@ -182,10 +198,14 @@ module Legion
             @queue.acknowledge(delivery_info.delivery_tag) if manual_ack
 
             cancel if Legion::Settings[:client][:shutting_down]
+          rescue UnrecoverableMessageError => e
+            handle_exception(e, lex: lex_name, fn: fn)
+            log.warn "[Subscription] dead-lettering unrecoverable message for #{lex_name}/#{fn}: #{e.message}"
+            @queue.reject(delivery_info.delivery_tag, requeue: false) if manual_ack && delivery_info
           rescue StandardError => e
             handle_exception(e)
             log.warn "[Subscription] retry-or-dlq for #{lex_name}/#{fn}"
-            reject_or_retry(delivery_info, metadata, payload) if manual_ack
+            reject_or_retry(delivery_info, metadata, payload) if manual_ack && delivery_info
           end
           log.info "[Subscription] subscribed: #{lex_name}/#{runner_name} (consumer registered)" if defined?(log)
         end

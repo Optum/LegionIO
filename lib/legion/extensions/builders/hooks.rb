@@ -34,6 +34,7 @@ module Legion
             @hooks[hook_name.to_sym] = {
               extension:      lex_class.to_s.downcase,
               extension_name: extension_name,
+              settings_path:  settings_path,
               hook_name:      hook_name,
               hook_class:     hook_class,
               route_path:     route_path

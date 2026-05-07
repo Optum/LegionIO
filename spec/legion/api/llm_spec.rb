@@ -44,6 +44,8 @@ RSpec.describe 'LLM API routes' do
   def stub_llm_started
     llm_mod = Module.new do
       def self.started? = true
+      def self.chat(*) = nil
+      def self.chat_direct(*) = nil
     end
     stub_const('Legion::LLM', llm_mod)
   end
@@ -144,108 +146,26 @@ RSpec.describe 'LLM API routes' do
     end
   end
 
-  # ──────────────────────────────────────────────────────────
-  # 201 gateway path (lex-llm-gateway available)
-  # ──────────────────────────────────────────────────────────
-
-  describe 'POST /api/llm/chat — gateway path' do
+  describe 'POST /api/llm/chat — native interface required' do
     before do
-      stub_llm_started
       stub_const('Legion::Extensions::Llm::Gateway::Runners::Inference', Module.new)
-
-      ingress_mod = Module.new
-      stub_const('Legion::Ingress', ingress_mod)
+      stub_const('Legion::Ingress', Module.new)
+      allow(Legion::Ingress).to receive(:run)
     end
 
-    it 'returns 201 with response when gateway succeeds' do
-      fake_result = double('GatewayResult',
-                           content:       'gateway response',
-                           model:         'claude-sonnet-4-6',
-                           input_tokens:  10,
-                           output_tokens: 20)
-      allow(fake_result).to receive(:respond_to?).with(:content).and_return(true)
-      allow(fake_result).to receive(:respond_to?).with(:model).and_return(true)
-      allow(fake_result).to receive(:respond_to?).with(:input_tokens).and_return(true)
-      allow(fake_result).to receive(:respond_to?).with(:output_tokens).and_return(true)
-      allow(fake_result).to receive(:is_a?).with(Hash).and_return(false)
+    it 'does not route through lex-llm-gateway when native chat is missing' do
+      llm_mod = Module.new do
+        def self.started? = true
+      end
+      stub_const('Legion::LLM', llm_mod)
 
-      allow(Legion::Ingress).to receive(:run).and_return({
-                                                           success: true,
-                                                           result:  fake_result
-                                                         })
-
-      post '/api/llm/chat', Legion::JSON.dump({ message: 'via gateway' }),
+      post '/api/llm/chat', Legion::JSON.dump({ message: 'native required' }),
            'CONTENT_TYPE' => 'application/json'
-      expect(last_response.status).to eq(201)
+
+      expect(Legion::Ingress).not_to have_received(:run)
+      expect(last_response.status).to eq(503)
       body = Legion::JSON.load(last_response.body)
-      expect(body[:data][:response]).to eq('gateway response')
-      expect(body[:data][:meta][:routed_via]).to eq('gateway')
-      expect(body[:data][:meta][:tokens_in]).to eq(10)
-    end
-
-    it 'returns 502 when ingress fails' do
-      allow(Legion::Ingress).to receive(:run).and_return({
-                                                           success: false,
-                                                           error:   'runner not found'
-                                                         })
-
-      post '/api/llm/chat', Legion::JSON.dump({ message: 'fail test' }),
-           'CONTENT_TYPE' => 'application/json'
-      expect(last_response.status).to eq(502)
-    end
-
-    it 'returns 502 when runner returns nil' do
-      allow(Legion::Ingress).to receive(:run).and_return({
-                                                           success: true,
-                                                           result:  nil,
-                                                           status:  'completed'
-                                                         })
-
-      post '/api/llm/chat', Legion::JSON.dump({ message: 'nil result' }),
-           'CONTENT_TYPE' => 'application/json'
-      expect(last_response.status).to eq(502)
-      body = Legion::JSON.load(last_response.body)
-      expect(body[:data][:error][:code]).to eq('empty_result')
-    end
-
-    it 'handles hash result with error' do
-      allow(Legion::Ingress).to receive(:run).and_return({
-                                                           success: true,
-                                                           result:  { error: 'model unavailable' }
-                                                         })
-
-      post '/api/llm/chat', Legion::JSON.dump({ message: 'hash error' }),
-           'CONTENT_TYPE' => 'application/json'
-      expect(last_response.status).to eq(502)
-    end
-
-    it 'handles hash result with response key' do
-      allow(Legion::Ingress).to receive(:run).and_return({
-                                                           success: true,
-                                                           result:  { response: 'hash response text' }
-                                                         })
-
-      post '/api/llm/chat', Legion::JSON.dump({ message: 'hash response' }),
-           'CONTENT_TYPE' => 'application/json'
-      expect(last_response.status).to eq(201)
-      body = Legion::JSON.load(last_response.body)
-      expect(body[:data][:response]).to eq('hash response text')
-    end
-
-    it 'passes correct runner params to Ingress.run' do
-      allow(Legion::Ingress).to receive(:run).and_return({ success: true, result: { response: 'ok' } })
-
-      post '/api/llm/chat',
-           Legion::JSON.dump({ message: 'test msg', model: 'gpt-4o', provider: 'openai' }),
-           'CONTENT_TYPE' => 'application/json'
-
-      expect(Legion::Ingress).to have_received(:run).with(
-        hash_including(
-          runner_class: 'Legion::Extensions::Llm::Gateway::Runners::Inference',
-          function:     'chat',
-          source:       'api'
-        )
-      )
+      expect(body[:error][:code]).to eq('llm_chat_unavailable')
     end
   end
 
@@ -413,43 +333,11 @@ RSpec.describe 'LLM API routes' do
     context 'when provider inventory is not loaded' do
       before { stub_llm_started }
 
-      it 'returns an empty provider list' do
+      it 'returns a clear unavailable response' do
         get '/api/llm/providers'
-        expect(last_response.status).to eq(200)
+        expect(last_response.status).to eq(503)
         body = Legion::JSON.load(last_response.body)
-        expect(body[:data][:providers]).to eq([])
-        expect(body[:data][:summary]).to include(total: 0, closed: 0, open: 0, half_open: 0)
-      end
-
-      it 'keeps the LegionIO provider route ahead of colliding library routes registered later' do
-        colliding_routes = Module.new do
-          def self.registered(app)
-            app.get '/api/llm/providers' do
-              json_response({ providers: [{ provider: 'legion-llm' }],
-                              summary:   { total: 1, routing_enabled: true } })
-            end
-          end
-        end
-
-        collision_app = Class.new(Sinatra::Base) do
-          helpers Legion::API::Helpers
-          helpers Legion::API::Validators
-
-          set :show_exceptions, false
-          set :raise_errors, false
-          set :host_authorization, permitted: :any
-
-          register Legion::API::Routes::Llm
-          register colliding_routes
-        end
-
-        response = Rack::MockRequest.new(collision_app).get('/api/llm/providers')
-        body = Legion::JSON.load(response.body)
-
-        expect(response.status).to eq(200)
-        expect(body[:data][:providers]).to eq([])
-        expect(body[:data][:summary]).to include(total: 0, closed: 0, open: 0, half_open: 0)
-        expect(body[:data][:summary]).not_to include(:routing_enabled)
+        expect(body[:error][:code]).to eq('providers_unavailable')
       end
     end
 
@@ -503,7 +391,7 @@ RSpec.describe 'LLM API routes' do
       end
     end
 
-    context 'when gateway loaded' do
+    context 'when gateway provider stats are loaded without native inventory' do
       let(:stats_mod) do
         Module.new do
           def self.health_report
@@ -525,12 +413,11 @@ RSpec.describe 'LLM API routes' do
         stub_const('Legion::Extensions::Llm::Gateway::Runners::ProviderStats', stats_mod)
       end
 
-      it 'returns 200 with providers and summary' do
+      it 'does not fall back to gateway provider stats' do
         get '/api/llm/providers'
-        expect(last_response.status).to eq(200)
+        expect(last_response.status).to eq(503)
         body = Legion::JSON.load(last_response.body)
-        expect(body[:data][:providers].length).to eq(2)
-        expect(body[:data][:summary][:total]).to eq(2)
+        expect(body[:error][:code]).to eq('providers_unavailable')
       end
     end
   end
@@ -595,12 +482,11 @@ RSpec.describe 'LLM API routes' do
         stub_const('Legion::Extensions::Llm::Gateway::Runners::ProviderStats', stats_mod)
       end
 
-      it 'returns 200 with provider detail' do
+      it 'does not fall back to gateway provider detail' do
         get '/api/llm/providers/anthropic'
-        expect(last_response.status).to eq(200)
+        expect(last_response.status).to eq(503)
         body = Legion::JSON.load(last_response.body)
-        expect(body[:data][:provider]).to eq('anthropic')
-        expect(body[:data][:healthy]).to be true
+        expect(body[:error][:code]).to eq('providers_unavailable')
       end
     end
   end

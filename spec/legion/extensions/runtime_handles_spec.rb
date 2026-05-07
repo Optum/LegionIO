@@ -11,6 +11,7 @@ RSpec.describe Legion::Extensions do
   after do
     described_class.reset_runtime_handles!
     described_class.instance_variable_set(:@loaded_extensions, nil)
+    described_class.instance_variable_set(:@extensions, nil)
   end
 
   it 'exposes extension handles without requiring callers to read ivars' do
@@ -50,15 +51,15 @@ RSpec.describe Legion::Extensions do
 
   it 'matches multi-segment extension modules to hyphenated lex handles' do
     ext_mod = Module.new do
-      def self.name = 'Legion::Extensions::Llm::Gateway'
+      def self.name = 'Legion::Extensions::Llm::Openai'
       def self.runner_modules = []
     end
-    described_class.const_set(:GatewayForSpec, ext_mod)
-    described_class.register_extension_handle('lex-llm-gateway', state: :running)
+    described_class.const_set(:OpenaiForSpec, ext_mod)
+    described_class.register_extension_handle('lex-llm-openai', state: :running)
 
     expect(described_class.loaded_extension_modules).to contain_exactly(ext_mod)
   ensure
-    described_class.send(:remove_const, :GatewayForSpec) if described_class.const_defined?(:GatewayForSpec, false)
+    described_class.send(:remove_const, :OpenaiForSpec) if described_class.const_defined?(:OpenaiForSpec, false)
   end
 
   it 'does not mark a gem loaded when require fails' do
@@ -83,5 +84,20 @@ RSpec.describe Legion::Extensions do
     expect(handle.last_error).to be_nil
     expect(described_class).to have_received(:unregister_capabilities).with('lex-example')
     expect(Legion::Ingress).to have_received(:reset_runner_cache!)
+  end
+
+  it 'refreshes the LLM provider registry after hot-reloading a lex-llm provider extension' do
+    providers = Module.new do
+      def self.rediscover_all_providers; end
+    end
+    stub_const('Legion::LLM::Call::Providers', providers)
+    allow(providers).to receive(:rediscover_all_providers)
+    allow(described_class).to receive(:unregister_capabilities)
+    allow(described_class).to receive(:load_extension).and_return(true)
+    described_class.instance_variable_set(:@extensions, [{ gem_name: 'lex-llm-vllm' }])
+
+    expect(described_class.reload_extension('lex-llm-vllm')).to be true
+
+    expect(providers).to have_received(:rediscover_all_providers)
   end
 end

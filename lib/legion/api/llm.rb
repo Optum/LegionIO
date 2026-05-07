@@ -24,49 +24,52 @@ module Legion
                 Legion::Cache.connected?
             end
 
-            define_method(:gateway_available?) do
-              defined?(Legion::Extensions::Llm::Gateway::Runners::Inference)
-            end
-
             define_method(:native_provider_stats_available?) do
               defined?(Legion::LLM::Inventory) && Legion::LLM::Inventory.respond_to?(:providers)
             end
 
-            define_method(:provider_health_report) do
-              if native_provider_stats_available?
-                groups = Legion::LLM::Inventory.providers
-                return [] unless groups.respond_to?(:map)
+            define_method(:require_llm_chat!) do
+              return if defined?(Legion::LLM) && Legion::LLM.respond_to?(:chat)
 
-                groups.map do |provider, offerings|
-                  provider_offerings = Array(offerings)
-                  health = provider_offerings.map { |offering| offering_value(offering, :health) }
-                                             .find { |entry| entry.is_a?(Hash) } || {}
-                  circuit = health[:circuit_state] || health['circuit_state'] || 'unknown'
-                  {
-                    provider:   provider.to_s,
-                    circuit:    circuit,
-                    adjustment: health[:adjustment] || health['adjustment'] || 0,
-                    healthy:    circuit.to_s != 'open',
-                    offerings:  provider_offerings.size,
-                    models:     provider_offerings.map { |offering| offering_value(offering, :model) }.compact.uniq,
-                    types:      provider_offerings.map { |offering| offering_value(offering, :type) }.compact.uniq,
-                    instances:  provider_offerings.map do |offering|
-                      offering_value(offering, :provider_instance) || offering_value(offering, :instance_id)
-                    end.compact.uniq
-                  }
-                end
-              elsif defined?(Legion::Extensions::Llm::Gateway::Runners::ProviderStats)
-                Legion::Extensions::Llm::Gateway::Runners::ProviderStats.health_report
-              else
-                []
+              halt 503, json_error('llm_chat_unavailable',
+                                   'Legion::LLM.chat is not available',
+                                   status_code: 503)
+            end
+
+            define_method(:require_provider_inventory!) do
+              return if native_provider_stats_available?
+
+              halt 503, json_error('providers_unavailable',
+                                   'LLM provider inventory is not loaded',
+                                   status_code: 503)
+            end
+
+            define_method(:provider_health_report) do
+              groups = Legion::LLM::Inventory.providers
+              return [] unless groups.respond_to?(:map)
+
+              groups.map do |provider, offerings|
+                provider_offerings = Array(offerings)
+                health = provider_offerings.map { |offering| offering_value(offering, :health) }
+                                           .find { |entry| entry.is_a?(Hash) } || {}
+                circuit = health[:circuit_state] || health['circuit_state'] || 'unknown'
+                {
+                  provider:   provider.to_s,
+                  circuit:    circuit,
+                  adjustment: health[:adjustment] || health['adjustment'] || 0,
+                  healthy:    circuit.to_s != 'open',
+                  offerings:  provider_offerings.size,
+                  models:     provider_offerings.map { |offering| offering_value(offering, :model) }.compact.uniq,
+                  types:      provider_offerings.map { |offering| offering_value(offering, :type) }.compact.uniq,
+                  instances:  provider_offerings.map do |offering|
+                    offering_value(offering, :provider_instance) || offering_value(offering, :instance_id)
+                  end.compact.uniq
+                }
               end
             end
 
             define_method(:provider_circuit_summary) do
               report = provider_health_report
-              return Legion::Extensions::Llm::Gateway::Runners::ProviderStats.circuit_summary if
-                report.empty? && defined?(Legion::Extensions::Llm::Gateway::Runners::ProviderStats)
-
               circuits = report.map { |entry| entry[:circuit].to_s }
               {
                 total:     report.size,
@@ -78,16 +81,10 @@ module Legion
 
             define_method(:provider_detail) do |provider|
               provider_name = provider.to_s
-              if native_provider_stats_available?
-                entry = provider_health_report.find { |candidate| candidate[:provider] == provider_name }
-                halt 404, json_error('provider_not_found', "Provider '#{provider_name}' not found", status_code: 404) unless entry
+              entry = provider_health_report.find { |candidate| candidate[:provider] == provider_name }
+              halt 404, json_error('provider_not_found', "Provider '#{provider_name}' not found", status_code: 404) unless entry
 
-                entry
-              elsif defined?(Legion::Extensions::Llm::Gateway::Runners::ProviderStats)
-                Legion::Extensions::Llm::Gateway::Runners::ProviderStats.provider_detail(provider: provider_name.to_sym)
-              else
-                halt 503, json_error('providers_unavailable', 'LLM provider inventory is not loaded', status_code: 503)
-              end
+              entry
             end
 
             define_method(:offering_value) do |offering, key|
@@ -157,55 +154,14 @@ module Legion
               end
             end
 
+            require_llm_chat!
+
             request_id = body[:request_id] || SecureRandom.uuid
             model      = body[:model]
             provider   = body[:provider]
 
-            # Compatibility fallback for legacy gateway installs. Native legion-llm handles routing first.
-            if !Legion::LLM.respond_to?(:chat) && gateway_available?
-              ingress_result = Legion::Ingress.run(
-                payload:      { message: message, model: model, provider: provider,
-                                request_id: request_id },
-                runner_class: 'Legion::Extensions::Llm::Gateway::Runners::Inference',
-                function:     'chat',
-                source:       'api'
-              )
-
-              unless ingress_result[:success]
-                Legion::Logging.error "[api/llm/chat] ingress failed: #{ingress_result}"
-                return json_response({ error: ingress_result[:error] || ingress_result[:status] },
-                                     status_code: 502)
-              end
-
-              result = ingress_result[:result]
-
-              if result.nil?
-                Legion::Logging.warn "[api/llm/chat] runner returned nil (status=#{ingress_result[:status]})"
-                return json_response({ error: { code:    'empty_result',
-                                                message: 'Gateway runner returned no result' } },
-                                     status_code: 502)
-              end
-
-              response_content = if result.respond_to?(:content)
-                                   result.content
-                                 elsif result.is_a?(Hash) && result[:error]
-                                   return json_response({ error: result[:error] }, status_code: 502)
-                                 elsif result.is_a?(Hash)
-                                   result[:response] || result[:content] || result.to_s
-                                 else
-                                   result.to_s
-                                 end
-
-              meta = { routed_via: 'gateway' }
-              meta[:model] = result.model.to_s if result.respond_to?(:model)
-              meta[:tokens_in] = result.input_tokens if result.respond_to?(:input_tokens)
-              meta[:tokens_out] = result.output_tokens if result.respond_to?(:output_tokens)
-
-              return json_response({ response: response_content, meta: meta }, status_code: 201)
-            end
-
             # Fallback: direct LLM call (no metering, no task tracking)
-            if cache_available? && env['HTTP_X_LEGION_SYNC'] != 'true'
+            if cache_available? && env['HTTP_X_LEGION_SYNC'] != 'true' && Legion::LLM.respond_to?(:chat_direct)
               llm = Legion::LLM
               rc  = Legion::LLM::ResponseCache
               rc.init_request(request_id)
@@ -469,6 +425,7 @@ module Legion
         def self.register_providers(app)
           app.get '/api/llm/providers' do
             require_llm!
+            require_provider_inventory!
 
             json_response({
                             providers: provider_health_report,
@@ -478,6 +435,7 @@ module Legion
 
           app.get '/api/llm/providers/:name' do
             require_llm!
+            require_provider_inventory!
 
             json_response(provider_detail(params[:name]))
           end

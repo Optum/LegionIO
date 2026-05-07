@@ -9,8 +9,8 @@ RSpec.describe Legion::CLI::TraceCommand do
   let(:search_result) do
     {
       results:   [
-        { created_at: Time.utc(2026, 3, 23, 12, 0, 0), extension: 'lex-llm-gateway',
-          runner_function: 'route_request', status: 'success', cost_usd: 0.0042,
+        { created_at: Time.utc(2026, 3, 23, 12, 0, 0), extension: 'lex-llm-openai',
+          runner_function: 'chat', status: 'success', cost_usd: 0.0042,
           tokens_in: 120, tokens_out: 350, wall_clock_ms: 1200, worker_id: 'w-1' },
         { created_at: Time.utc(2026, 3, 23, 11, 30, 0), extension: 'lex-apollo',
           runner_function: 'ingest', status: 'failure', cost_usd: 0.0,
@@ -52,7 +52,7 @@ RSpec.describe Legion::CLI::TraceCommand do
     end
 
     it 'shows extension and function' do
-      expect { described_class.start(%w[search all --no-color]) }.to output(/lex-llm-gateway\.route_request/).to_stdout
+      expect { described_class.start(%w[search all --no-color]) }.to output(/lex-llm-openai\.chat/).to_stdout
     end
 
     it 'shows cost' do

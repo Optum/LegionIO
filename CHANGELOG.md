@@ -2,6 +2,46 @@
 
 ## [Unreleased]
 
+## [1.9.23] - 2026-05-07
+
+### Fixed
+- Fixed encrypted subscription handling to accept both string-keyed and symbol-keyed IV headers before decrypting `encrypted/cs` AMQP payloads.
+
+## [1.9.22] - 2026-05-06
+
+### Changed
+- Hot-reloading a `lex-llm-*` provider extension now asks `Legion::LLM::Call::Providers` to rediscover loaded provider modules, keeping LLM provider instances aligned after extension updates.
+- Bumped the packaged `legion-llm` dependency floor to `>= 0.9.1` for LLM-owned provider registration and reload-safe registry rebuilds.
+
+## [1.9.21] - 2026-05-06
+
+### Changed
+- LegionIO now mounts `Legion::LLM::Routes` through the library route selector when `legion-llm` is available, leaving LLM API ownership with `legion-llm` instead of registering partial fallback routes first.
+- LLM provider health API and CLI output now require native `Legion::LLM::Inventory` data and return a clear unavailable response when inventory is not loaded.
+- Bumped packaged dependency floors to `legion-llm >= 0.9.0` and `legion-data >= 1.8.0` for the coordinated LLM route/schema sweep.
+
+### Fixed
+- Lite and local mode startup now write development mode through the public `Legion::Settings.set_prop` API.
+
+### Removed
+- Removed active `lex-llm-gateway` fallback paths from LLM chat, provider health, extension catalog, role filtering, and README documentation.
+
+## [1.9.20] - 2026-05-06
+
+### Fixed
+- Nested LEX extensions now merge default settings into their nested `extensions` path (for example `lex-foo-bar` -> `extensions.foo.bar`) while underscored flat extensions continue to use the flat key (for example `lex-foo_bar` -> `extensions.foo_bar`).
+- Extension load-time settings checks now use the discovered settings path for nested extensions, keeping `enabled`, `min_version`, `workers`, and `remote_invocable` overrides aligned with where defaults are merged.
+
+## [1.9.19] - 2026-05-05
+
+### Added
+- `UnrecoverableMessageError` for messages that should be dead-lettered immediately (e.g., missing IV header on encrypted messages) instead of retried.
+- Subscription actors now extract `message_id` and `correlation_id` from AMQP metadata into the message hash for downstream tracing.
+- Runner builder auto-includes `Helpers::Lex` into runner modules when available, ensuring all runners have LEX metadata helpers.
+
+### Fixed
+- Encrypted messages (`encrypted/cs`) with a missing `iv` header now raise `UnrecoverableMessageError` and are dead-lettered rather than crashing with a nil argument to `Crypt.decrypt`.
+
 ## [1.9.18] - 2026-04-29
 
 ### Fixed

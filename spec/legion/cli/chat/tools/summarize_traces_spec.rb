@@ -22,7 +22,7 @@ RSpec.describe Legion::CLI::Chat::Tools::SummarizeTraces do
                                                                      max_latency_ms:   1200,
                                                                      time_range:       { from: '2026-03-22', to: '2026-03-23' },
                                                                      status_counts:    { 'success' => 140, 'failure' => 10 },
-                                                                     top_extensions:   [{ name: 'lex-llm-gateway', count: 80 }],
+                                                                     top_extensions:   [{ name: 'lex-llm-openai', count: 80 }],
                                                                      top_workers:      [{ id: 'worker-1', count: 60 }]
                                                                    })
 
@@ -32,7 +32,7 @@ RSpec.describe Legion::CLI::Chat::Tools::SummarizeTraces do
       expect(result).to include('$3.4567')
       expect(result).to include('avg 245.3ms')
       expect(result).to include('success: 140')
-      expect(result).to include('lex-llm-gateway (80)')
+      expect(result).to include('lex-llm-openai (80)')
       expect(result).to include('worker-1 (60)')
     end
 

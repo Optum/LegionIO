@@ -219,27 +219,9 @@ module Legion
       end
 
       def build_settings
-        defaults = deep_dup_settings_value(Legion::Settings[:default_extension_settings] || {})
-
-        if Legion::Settings[:extensions].key?(lex_name.to_sym)
-          defaults.each do |key, value|
-            Legion::Settings[:extensions][lex_name.to_sym][key.to_sym] = if Legion::Settings[:extensions][lex_name.to_sym].key?(key.to_sym)
-                                                                           deep_dup_settings_value(value).merge(Legion::Settings[:extensions][lex_name.to_sym][key.to_sym])
-                                                                         else
-                                                                           deep_dup_settings_value(value)
-                                                                         end
-          end
-        else
-          Legion::Settings[:extensions][lex_name.to_sym] = defaults
-        end
-
-        default_settings.each do |key, value|
-          Legion::Settings[:extensions][lex_name.to_sym][key.to_sym] = if Legion::Settings[:extensions][lex_name.to_sym].key?(key.to_sym)
-                                                                         deep_dup_settings_value(value).merge(Legion::Settings[:extensions][lex_name.to_sym][key.to_sym])
-                                                                       else
-                                                                         deep_dup_settings_value(value)
-                                                                       end
-        end
+        target = extension_settings_target
+        merge_extension_defaults!(target, Legion::Settings[:default_extension_settings] || {})
+        merge_extension_defaults!(target, default_settings)
       end
 
       def default_settings
@@ -283,6 +265,29 @@ module Legion
         end
       rescue TypeError
         value
+      end
+
+      def extension_settings_target
+        settings_path.reduce(Legion::Settings[:extensions]) do |current, key|
+          current[key] = {} unless current[key].is_a?(Hash)
+          current[key]
+        end
+      end
+
+      def merge_extension_defaults!(target, defaults)
+        defaults.each do |key, value|
+          key = key.to_sym
+          target[key] = if target.key?(key)
+                          merge_extension_default_value(deep_dup_settings_value(value), target[key])
+                        else
+                          deep_dup_settings_value(value)
+                        end
+        end
+      end
+
+      def merge_extension_default_value(default_value, current_value)
+        merge_extension_defaults!(current_value, default_value) if default_value.is_a?(Hash) && current_value.is_a?(Hash)
+        current_value
       end
     end
   end

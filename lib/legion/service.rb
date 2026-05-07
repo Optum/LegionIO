@@ -209,7 +209,7 @@ module Legion
     def setup_local_mode
       if lite_mode?
         log.info 'Starting in lite mode (zero infrastructure)'
-        Legion::Settings[:dev] = true
+        Legion::Settings.set_prop(:dev, true)
         require 'legion/transport/local'
         require 'legion/crypt/mock_vault' if defined?(Legion::Crypt)
         return
@@ -218,7 +218,7 @@ module Legion
       return unless local_mode?
 
       log.info 'Starting in local development mode'
-      Legion::Settings[:dev] = true
+      Legion::Settings.set_prop(:dev, true)
 
       require 'legion/transport/local'
       require 'legion/crypt/mock_vault'

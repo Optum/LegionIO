@@ -54,7 +54,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency 'legion-cache', '>= 1.3.22'
   spec.add_dependency 'legion-crypt', '>= 1.5.1'
-  spec.add_dependency 'legion-data', '>= 1.6.19'
+  spec.add_dependency 'legion-data', '>= 1.8.0'
   spec.add_dependency 'legion-json', '>= 1.2.1'
   spec.add_dependency 'legion-logging', '>= 1.5.0'
   spec.add_dependency 'legion-settings', '>= 1.3.25'
@@ -62,7 +62,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency 'legion-apollo', '>= 0.4.0'
   spec.add_dependency 'legion-gaia', '>= 0.9.26'
-  spec.add_dependency 'legion-llm', '>= 0.8.47'
+  spec.add_dependency 'legion-llm', '>= 0.9.1'
   spec.add_dependency 'legion-tty', '>= 0.5.4'
   spec.add_dependency 'lex-node'
 end
