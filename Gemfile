@@ -61,6 +61,8 @@ gem 'kramdown', '>= 2.0'
 gem 'mysql2'
 
 group :test do
+  gem 'faraday'
+  gem 'faraday-net_http'
   gem 'graphql'
   gem 'lex-codegen'
   gem 'lex-eval'

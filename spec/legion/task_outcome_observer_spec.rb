@@ -10,6 +10,8 @@ RSpec.describe Legion::TaskOutcomeObserver do
     allow(Legion::Logging).to receive(:warn)
     # Clear event handlers between tests
     Legion::Events.instance_variable_set(:@listeners, Hash.new { |h, k| h[k] = [] })
+    described_class.instance_variable_set(:@meta_learning_client, nil)
+    described_class.instance_variable_set(:@learning_domain_map, nil)
   end
 
   describe '.setup' do
@@ -44,6 +46,21 @@ RSpec.describe Legion::TaskOutcomeObserver do
     it 'handles task.failed events' do
       payload = { task_id: 'def', runner_class: 'Legion::Extensions::Github::Runners::Issues', function: 'create' }
       expect { Legion::Events.emit('task.failed', **payload) }.not_to raise_error
+    end
+
+    it 'ignores internal runner completions without task ids' do
+      client = instance_double('meta_client', create_learning_domain: { id: 'dom-123' }, record_learning_episode: true)
+      client_class = Class.new
+      allow(client_class).to receive(:new).and_return(client)
+      stub_const('Legion::Extensions::Agentic::Learning::MetaLearning::Client', client_class)
+      stub_const('Legion::Apollo', Module.new { def self.ingest(**) = nil })
+      expect(Legion::Apollo).not_to receive(:ingest)
+
+      payload = { runner_class: 'Legion::Extensions::Mesh::Runners::Mesh', function: 'publish_gossip' }
+      Legion::Events.emit('task.completed', **payload)
+
+      expect(client).not_to have_received(:create_learning_domain)
+      expect(client).not_to have_received(:record_learning_episode)
     end
   end
 

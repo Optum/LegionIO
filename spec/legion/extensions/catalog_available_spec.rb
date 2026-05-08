@@ -24,7 +24,15 @@ RSpec.describe Legion::Extensions::Catalog::Available do
     end
 
     it 'does not advertise deprecated direct provider extensions' do
-      %w[lex-bedrock lex-claude lex-gemini lex-ollama lex-openai].each do |deprecated|
+      %w[
+        lex-azure-ai
+        lex-bedrock
+        lex-claude
+        lex-foundry
+        lex-gemini
+        lex-ollama
+        lex-openai
+      ].each do |deprecated|
         expect(described_class.find(deprecated)).to be_nil, "expected #{deprecated} to be removed from catalog"
       end
     end

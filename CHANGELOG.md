@@ -2,10 +2,17 @@
 
 ## [Unreleased]
 
+## [1.9.28] - 2026-05-08
+
+### Fixed
+- Task outcome observation now ignores internal runner completions without task ids, preventing periodic mesh gossip ticks from feeding meta-learning and Apollo ingestion.
+- Identity resolver database persistence now targets the current identity provider, principal, identity, and audit log schema.
+
 ## [1.9.27] - 2026-05-08
 
 ### Fixed
 - Preserve omitted `/api/llm/inference` client tool definitions as absent instead of `tools: []`, allowing legion-llm registry and trigger-based tool injection to run for normal API requests.
+- Added an opt-in live daemon integration spec suite that uses explicit Faraday test dependencies and its own isolated RSpec helper.
 
 ## [1.9.26] - 2026-05-07
 
@@ -20,7 +27,7 @@
 ## [1.9.24] - 2026-05-07
 
 ### Changed
-- Removed deprecated direct AI provider extensions (`lex-bedrock`, `lex-claude`, `lex-gemini`, `lex-ollama`, `lex-openai`) from the extension catalog; use their `lex-llm-*` counterparts instead.
+- Removed deprecated direct AI provider extensions (`lex-azure-ai`, `lex-bedrock`, `lex-claude`, `lex-foundry`, `lex-gemini`, `lex-ollama`, `lex-openai`) from the extension catalog; use their `lex-llm-*` counterparts instead.
 
 ## [1.9.23] - 2026-05-07
 
