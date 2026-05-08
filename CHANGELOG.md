@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.9.26] - 2026-05-07
+
+### Fixed
+- Use the local `Legion::Identity::Process` identity for unauthenticated loopback API principals even when the process is only fallback-bound, avoiding generic `system:system` attribution in downstream LLM audit flows.
+
 ## [1.9.25] - 2026-05-07
 
 ### Fixed

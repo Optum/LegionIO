@@ -144,6 +144,24 @@ RSpec.describe Legion::Identity::Middleware do
   describe 'when no auth is present and require_auth is false (default)' do
     let(:env) { env_for('/api/tasks') }
 
+    def stub_process_identity(canonical_name: 'matt@example.com', kind: :human, source: :system)
+      process = Module.new do
+        class << self
+          attr_accessor :canonical_name_value, :kind_value, :source_value
+
+          def canonical_name = @canonical_name_value
+          def kind = @kind_value
+          def source = @source_value
+          def resolved? = false
+        end
+      end
+      process.canonical_name_value = canonical_name
+      process.kind_value = kind
+      process.source_value = source
+
+      stub_const('Legion::Identity::Process', process)
+    end
+
     it 'sets a system principal' do
       captured = nil
       app = described_class.new(lambda { |e|
@@ -162,7 +180,9 @@ RSpec.describe Legion::Identity::Middleware do
       })
       app.call(env)
       principal = captured['legion.principal']
-      expected_canonical = if defined?(Legion::Identity::Process) && Legion::Identity::Process.resolved?
+      expected_canonical = if defined?(Legion::Identity::Process) &&
+                              Legion::Identity::Process.respond_to?(:canonical_name) &&
+                              Legion::Identity::Process.canonical_name.to_s != ''
                              Legion::Identity::Process.canonical_name
                            else
                              'system'
@@ -170,14 +190,38 @@ RSpec.describe Legion::Identity::Middleware do
       expect(principal.principal_id).to eq("system:#{expected_canonical}")
     end
 
-    it 'sets kind to :service' do
+    it 'uses the local process identity even when the process resolver is not formally resolved' do
+      stub_process_identity
+      captured = nil
+      app = described_class.new(lambda { |e|
+        captured = e
+        [200, {}, []]
+      })
+
+      app.call(env)
+
+      principal = captured['legion.principal']
+      expect(principal.principal_id).to eq('system:matt@example.com')
+      expect(principal.canonical_name).to eq('matt@example.com')
+      expect(principal.kind).to eq(:human)
+      expect(principal.source).to eq(:system)
+    end
+
+    it 'sets kind from the local process identity when available' do
       captured = nil
       app = described_class.new(lambda { |e|
         captured = e
         [200, {}, []]
       })
       app.call(env)
-      expect(captured['legion.principal'].kind).to eq(:service)
+      expected_kind = if defined?(Legion::Identity::Process) &&
+                         Legion::Identity::Process.respond_to?(:kind) &&
+                         Legion::Identity::Process.kind
+                        Legion::Identity::Process.kind
+                      else
+                        :service
+                      end
+      expect(captured['legion.principal'].kind).to eq(expected_kind)
     end
 
     it 'memoizes the system principal across calls' do
