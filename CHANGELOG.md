@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.9.27] - 2026-05-08
+
+### Fixed
+- Preserve omitted `/api/llm/inference` client tool definitions as absent instead of `tools: []`, allowing legion-llm registry and trigger-based tool injection to run for normal API requests.
+
 ## [1.9.26] - 2026-05-07
 
 ### Fixed

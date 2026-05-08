@@ -213,7 +213,8 @@ module Legion
             validate_required!(body, :messages)
 
             messages        = body[:messages]
-            tools           = body[:tools] || []
+            tools_present   = body.key?(:tools)
+            tools           = tools_present ? Array(body[:tools]) : []
             model           = body[:model]
             provider        = body[:provider]
             requested_tools = body[:requested_tools] || []
@@ -267,17 +268,19 @@ module Legion
                          end
 
             caller_metadata = body[:metadata].is_a?(Hash) ? body[:metadata] : {}
-            req = Legion::LLM::Inference::Request.build(
+            request_args = {
               messages:        messages,
               system:          body[:system],
               routing:         { provider: provider, model: model },
-              tools:           tool_classes,
               caller:          caller_ctx,
               conversation_id: body[:conversation_id],
               metadata:        caller_metadata.merge(requested_tools: requested_tools),
               stream:          streaming,
               cache:           { strategy: :default, cacheable: true }
-            )
+            }
+            request_args[:tools] = tool_classes if tools_present
+
+            req = Legion::LLM::Inference::Request.build(**request_args)
             executor = Legion::LLM::Inference::Executor.new(req)
 
             if streaming
