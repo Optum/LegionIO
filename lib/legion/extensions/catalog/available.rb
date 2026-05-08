@@ -27,13 +27,6 @@ module Legion
           { name: 'lex-transformer',  category: 'core',     description: 'Task chain transformation' },
           { name: 'lex-webhook',      category: 'core',     description: 'Inbound webhook receiver' },
           # ai
-          { name: 'lex-azure-ai',     category: 'ai',       description: 'Azure OpenAI provider integration' },
-          { name: 'lex-bedrock',      category: 'ai',       description: 'AWS Bedrock LLM provider integration' },
-          { name: 'lex-claude',       category: 'ai',       description: 'Anthropic Claude provider integration' },
-          { name: 'lex-foundry',      category: 'ai',       description: 'Azure AI Foundry provider integration' },
-          { name: 'lex-gemini',       category: 'ai',       description: 'Google Gemini provider integration' },
-          { name: 'lex-ollama',       category: 'ai',       description: 'Ollama local LLM provider integration' },
-          { name: 'lex-openai',       category: 'ai',       description: 'OpenAI provider integration' },
           { name: 'lex-xai',          category: 'ai',       description: 'xAI Grok provider integration' },
           { name: 'lex-llm',          category: 'ai',       description: 'Common LLM provider base and routing metadata' },
           { name: 'lex-llm-anthropic', category: 'ai',      description: 'Anthropic LLM provider integration' },

@@ -1,0 +1,4 @@
+--color
+--format documentation
+--require ./spec/live/spec_helper
+--default-path spec/live

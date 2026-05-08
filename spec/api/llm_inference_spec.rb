@@ -175,6 +175,28 @@ RSpec.describe 'POST /api/llm/inference' do
       end
     end
 
+    it 'does not pass tools when the request omits client tool definitions' do
+      received_kwargs = nil
+      pipeline_response = build_pipeline_response
+      stub_const('Legion::LLM::Inference::Request', Module.new do
+        define_singleton_method(:build) do |**kwargs|
+          received_kwargs = kwargs
+          :stubbed_request
+        end
+      end)
+
+      stub_const('Legion::LLM::Inference::Executor', Class.new do
+        define_method(:initialize) { |_req| nil }
+        define_method(:call) { pipeline_response }
+      end)
+
+      post '/api/llm/inference',
+           Legion::JSON.dump({ messages: [{ role: 'user', content: 'go' }] }),
+           { 'CONTENT_TYPE' => 'application/json' }
+
+      expect(received_kwargs).not_to have_key(:tools)
+    end
+
     it 'returns 400 when messages is not an array' do
       post '/api/llm/inference',
            Legion::JSON.dump({ messages: 'not an array' }),

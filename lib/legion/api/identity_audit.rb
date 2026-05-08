@@ -9,13 +9,13 @@ module Legion
 
           app.get '/api/identity/audit' do
             require_data!
-            halt 503, json_error('unavailable', 'identity audit log not available') unless defined?(Legion::Data::Model::IdentityAuditLog)
+            halt 503, json_error('unavailable', 'identity audit log not available') unless defined?(Legion::Data::Model::Identity::AuditLog)
 
-            dataset = Legion::Data::Model::IdentityAuditLog.dataset
+            dataset = Legion::Data::Model::Identity::AuditLog.dataset
 
             principal = params[:principal]
-            if principal && defined?(Legion::Data::Model::Principal)
-              principal_record = Legion::Data::Model::Principal.where(canonical_name: principal).first
+            if principal && defined?(Legion::Data::Model::Identity::Principal)
+              principal_record = Legion::Data::Model::Identity::Principal.where(canonical_name: principal).first
               halt 404, json_error('not_found', "principal '#{principal}' not found") unless principal_record
               dataset = dataset.where(principal_id: principal_record.id)
             end

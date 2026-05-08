@@ -34,8 +34,10 @@ module Legion
       private
 
       def handle_outcome(payload, success:)
-        runner_class = payload[:runner_class].to_s
-        function = payload[:function].to_s
+        return unless observable_outcome?(payload)
+
+        runner_class = outcome_value(payload, :runner_class).to_s
+        function = outcome_value(payload, :function).to_s
         domain = derive_domain(runner_class)
 
         record_learning(domain: domain, success: success)
@@ -50,6 +52,18 @@ module Legion
         return 'unknown' unless last
 
         last.gsub(/([A-Z])/, '_\1').delete_prefix('_').downcase
+      end
+
+      def observable_outcome?(payload)
+        !outcome_value(payload, :task_id).to_s.strip.empty? &&
+          !outcome_value(payload, :runner_class).to_s.strip.empty? &&
+          !outcome_value(payload, :function).to_s.strip.empty?
+      end
+
+      def outcome_value(payload, key)
+        return unless payload.respond_to?(:[])
+
+        payload[key] || payload[key.to_s]
       end
 
       def record_learning(domain:, success:)

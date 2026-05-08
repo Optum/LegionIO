@@ -316,57 +316,74 @@ module Legion
           @resolved.make_true
         end
 
-        def persist_to_db(composite) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength
+        def persist_to_db(composite) # rubocop:disable Metrics/MethodLength
           return unless defined?(Legion::Data) && Legion::Data.respond_to?(:connected?) && Legion::Data.connected?
-          return unless defined?(Legion::Data::Connection) &&
-                        Legion::Data::Connection.respond_to?(:adapter) &&
-                        Legion::Data::Connection.adapter == :postgres
 
-          # upsert identity_providers
-          composite[:providers]&.each do |name, info|
-            Legion::Data.db[:identity_providers].insert_conflict(
+          now = Time.now.utc
+          db = Legion::Data.db
+
+          composite[:providers]&.each_key do |name|
+            db[:identity_providers].insert_conflict(
               target: :name,
-              update: { status: info[:status].to_s, trust_level: info[:trust]&.to_s, last_seen_at: Time.now }
-            ).insert(name: name.to_s, status: info[:status].to_s, trust_level: info[:trust]&.to_s, last_seen_at: Time.now)
+              update: { updated_at: now }
+            ).insert(
+              uuid:          SecureRandom.uuid,
+              name:          name.to_s,
+              provider_type: 'authenticate',
+              facing:        'both',
+              source:        'resolver',
+              enabled:       true,
+              created_at:    now,
+              updated_at:    now
+            )
           end
 
-          # upsert principals
-          Legion::Data.db[:principals].insert_conflict(
-            target: :canonical_name,
-            update: { kind: composite[:kind].to_s, updated_at: Time.now }
+          db[:identity_principals].insert_conflict(
+            target: %i[canonical_name kind],
+            update: { last_seen_at: now, updated_at: now }
           ).insert(
+            uuid:           SecureRandom.uuid,
             canonical_name: composite[:canonical_name],
             kind:           composite[:kind].to_s,
-            created_at:     Time.now,
-            updated_at:     Time.now
+            active:         true,
+            last_seen_at:   now,
+            created_at:     now,
+            updated_at:     now
           )
 
-          principal_row = Legion::Data.db[:principals].where(canonical_name: composite[:canonical_name]).first
+          principal_row = db[:identity_principals].where(
+            canonical_name: composite[:canonical_name], kind: composite[:kind].to_s
+          ).first
           principal_id = principal_row[:id] if principal_row
 
-          # upsert identities per provider alias
           composite[:aliases]&.each do |provider_name, identities|
+            provider_row = db[:identity_providers].where(name: provider_name.to_s).first
+            next unless provider_row
+
             Array(identities).each do |ident|
-              Legion::Data.db[:identities].insert_conflict(
-                target: %i[principal_id provider_name provider_identity],
-                update: { updated_at: Time.now }
+              db[:identities].insert_conflict(
+                target: %i[principal_id provider_id provider_identity_key],
+                update: { last_authenticated_at: now, updated_at: now }
               ).insert(
-                principal_id:      principal_id,
-                provider_name:     provider_name.to_s,
-                provider_identity: ident,
-                created_at:        Time.now,
-                updated_at:        Time.now
+                uuid:                  SecureRandom.uuid,
+                principal_id:          principal_id,
+                provider_id:           provider_row[:id],
+                provider_identity_key: ident,
+                active:                true,
+                last_authenticated_at: now,
+                created_at:            now,
+                updated_at:            now
               )
             end
           end
 
-          # insert audit log
-          Legion::Data.db[:identity_audit_log].insert(
-            principal_id:  principal_id,
-            event_type:    'identity.resolved',
-            provider_name: composite[:source].to_s,
-            trust_level:   composite[:trust]&.to_s,
-            detail:        Legion::JSON.dump(
+          db[:identity_audit_log].insert(
+            uuid:           SecureRandom.uuid,
+            principal_id:   principal_id,
+            event_type:     'identity.resolved',
+            provider_name:  composite[:source].to_s,
+            trust_level:    composite[:trust]&.to_s,
+            detail_payload: Legion::JSON.dump(
               {
                 source:     composite[:source],
                 trust:      composite[:trust],
@@ -374,9 +391,9 @@ module Legion
                 session_id: @session_id
               }
             ),
-            node_id:       composite[:node_id],
-            session_id:    @session_id,
-            created_at:    Time.now
+            node_ref:       composite[:node_id],
+            session_ref:    @session_id,
+            created_at:     now
           )
         rescue StandardError => e
           log_warn("DB persistence failed: #{e.message}")
@@ -406,18 +423,15 @@ module Legion
           end
 
           return unless defined?(Legion::Data) && Legion::Data.respond_to?(:connected?) && Legion::Data.connected?
-          return unless defined?(Legion::Data::Connection) &&
-                        Legion::Data::Connection.respond_to?(:adapter) &&
-                        Legion::Data::Connection.adapter == :postgres
 
-          # Audit the canonical change
-          old_row = Legion::Data.db[:principals].where(canonical_name: old_canonical).first
+          old_row = Legion::Data.db[:identity_principals].where(canonical_name: old_canonical).first
           Legion::Data.db[:identity_audit_log].insert(
-            principal_id:  old_row&.dig(:id),
-            event_type:    'identity.canonical_changed',
-            provider_name: '',
-            detail:        Legion::JSON.dump({ old: old_canonical, new: new_canonical }),
-            created_at:    Time.now
+            uuid:           SecureRandom.uuid,
+            principal_id:   old_row&.dig(:id),
+            event_type:     'identity.canonical_changed',
+            provider_name:  'resolver',
+            detail_payload: Legion::JSON.dump({ old: old_canonical, new: new_canonical }),
+            created_at:     Time.now
           )
         rescue StandardError => e
           log_warn("canonical change handling failed: #{e.message}")

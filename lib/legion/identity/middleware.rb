@@ -115,22 +115,40 @@ module Legion
       end
 
       def system_principal
-        canonical = if defined?(Legion::Identity::Process) && Legion::Identity::Process.resolved?
-                      Legion::Identity::Process.canonical_name
-                    else
-                      'system'
-                    end
+        attrs = system_identity_attributes
 
-        if @system_principal&.canonical_name != canonical
+        if @system_principal&.canonical_name != attrs[:canonical_name] ||
+           @system_principal&.kind != attrs[:kind] ||
+           @system_principal&.source != Identity::Request::SOURCE_NORMALIZATION.fetch(attrs[:source], attrs[:source])
           @system_principal = Identity::Request.new(
-            principal_id:   "system:#{canonical}",
-            canonical_name: canonical,
-            kind:           :service,
+            principal_id:   "system:#{attrs[:canonical_name]}",
+            canonical_name: attrs[:canonical_name],
+            kind:           attrs[:kind],
             groups:         [],
-            source:         :local
+            source:         attrs[:source]
           )
         end
         @system_principal
+      end
+
+      def system_identity_attributes
+        process = defined?(Legion::Identity::Process) ? Legion::Identity::Process : nil
+        canonical = process_value(process, :canonical_name)
+        canonical = 'system' if canonical.nil? || canonical.to_s.empty?
+
+        {
+          canonical_name: canonical.to_s,
+          kind:           process_value(process, :kind) || :service,
+          source:         process_value(process, :source) || :local
+        }
+      end
+
+      def process_value(process, method_name)
+        return nil unless process.respond_to?(method_name)
+
+        process.public_send(method_name)
+      rescue StandardError
+        nil
       end
     end
   end
