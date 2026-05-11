@@ -82,7 +82,7 @@ module Legion
                   end
 
                   def default_type
-                    'topic'
+                    'fanout'
                   end
                 end)
               end
