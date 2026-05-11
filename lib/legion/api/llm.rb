@@ -268,16 +268,23 @@ module Legion
                          end
 
             caller_metadata = body[:metadata].is_a?(Hash) ? body[:metadata] : {}
+            instance = body[:instance]
+            tier     = body[:tier]
             request_args = {
               messages:        messages,
               system:          body[:system],
-              routing:         { provider: provider, model: model },
+              routing:         { provider: provider, model: model, instance: instance }.compact,
               caller:          caller_ctx,
               conversation_id: body[:conversation_id],
               metadata:        caller_metadata.merge(requested_tools: requested_tools),
               stream:          streaming,
               cache:           { strategy: :default, cacheable: true }
             }
+            if tier
+              halt 400, Legion::JSON.dump({ error: 'invalid tier' }) unless tier.is_a?(String)
+              halt 400, Legion::JSON.dump({ error: 'invalid tier' }) unless %w[local fleet auto].include?(tier)
+              request_args[:extra] = { tier: tier.to_sym }
+            end
             request_args[:tools] = tool_classes if tools_present
 
             req = Legion::LLM::Inference::Request.build(**request_args)

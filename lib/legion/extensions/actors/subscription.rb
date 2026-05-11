@@ -110,7 +110,20 @@ module Legion
             log.warn "[Subscription] skipping activate for #{lex_name}/#{runner_name}: no consumer (prepare failed?)"
             return
           end
-          @queue.subscribe_with(@consumer)
+
+          if @queue.channel.open?
+            @queue.subscribe_with(@consumer)
+          else
+            log.warn "[Subscription] channel closed before activate for #{lex_name}/#{runner_name}, re-preparing"
+            prepare
+            if @consumer && @queue.channel.open?
+              @queue.subscribe_with(@consumer)
+            else
+              log.error "[Subscription] re-prepare failed for #{lex_name}/#{runner_name}, skipping activate"
+              return
+            end
+          end
+
           log.info "[Subscription] activated: #{lex_name}/#{runner_name} (consumer registered)"
         end
 

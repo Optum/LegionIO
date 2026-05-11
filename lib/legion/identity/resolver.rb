@@ -13,25 +13,34 @@ module Legion
       TIMEOUT_SECONDS = 5
 
       class << self
+        include Legion::Logging::Helper
+
         def register(provider)
           return if @providers.any? { |p| p.provider_name == provider.provider_name }
 
+          log.debug("register: #{provider.provider_name} type=#{provider.provider_type} trust=#{provider.trust_level}")
           @providers << provider
         end
 
         def resolve!(timeout: TIMEOUT_SECONDS)
+          log.debug("resolve!: starting with #{@providers.size} providers, timeout=#{timeout}s")
           drain_pending_registrations
 
           auth_providers, profile_providers, fallback_providers = partition_providers
+          log.debug("resolve!: partitioned auth=#{auth_providers.map(&:provider_name)} " \
+                    "profile=#{profile_providers.map(&:provider_name)} " \
+                    "fallback=#{fallback_providers.map(&:provider_name)}")
 
           winning_provider, winning_result, provider_results = resolve_auth(auth_providers, timeout: timeout)
 
           if winning_provider.nil?
+            log.debug('resolve!: no auth winner, trying fallback providers')
             winning_provider, winning_result, fallback_results = resolve_auth(fallback_providers, timeout: timeout)
             provider_results.merge!(fallback_results) if fallback_results
           end
 
           unless winning_provider
+            log.debug('resolve!: no provider resolved, identity unresolved')
             @resolved.make_false
             @composite.set(nil)
             return nil
@@ -40,8 +49,10 @@ module Legion
           canonical = winning_result[:canonical_name]
           trust_level = winning_provider.trust_level
           source = winning_provider.provider_name
+          log.debug("resolve!: winner=#{source} canonical=#{canonical} trust=#{trust_level}")
 
           profile_data = resolve_profiles(profile_providers, canonical, timeout: timeout)
+          log.debug("resolve!: profiles resolved groups=#{profile_data[:groups].size} profile_keys=#{profile_data[:profile].keys}")
 
           composite = assemble_composite(
             provider_results, profile_data,
@@ -51,12 +62,15 @@ module Legion
           )
 
           bind_and_persist(winning_provider, composite, trust_level)
+          log.debug("resolve!: complete canonical=#{composite[:canonical_name]} providers=#{composite[:providers].keys}")
           composite
         end
 
         def upgrade!(provider, result)
           current = @composite.get
           return unless current
+
+          log.debug("upgrade!: provider=#{provider.provider_name} trust=#{provider.trust_level} current_canonical=#{current[:canonical_name]}")
 
           new_trust = provider.trust_level
           new_canonical = result[:canonical_name] || current[:canonical_name]
@@ -109,6 +123,7 @@ module Legion
 
           persist_identity_json(new_canonical, updated[:kind]) unless new_trust == :unverified
 
+          log.debug("upgrade!: complete canonical=#{new_canonical} trust=#{effective_trust} canonical_changed=#{canonical_changed}")
           updated
         end
 
@@ -145,6 +160,7 @@ module Legion
           pending = Legion::Identity.pending_registrations
           return if pending.nil? || pending.empty?
 
+          log.debug("drain_pending_registrations: draining #{pending.size} pending providers")
           drained = []
           drained << pending.shift until pending.empty?
           drained.each { |p| register(p) }
@@ -172,6 +188,7 @@ module Legion
         def resolve_auth(auth_providers, timeout:)
           return [nil, nil, {}] if auth_providers.empty?
 
+          log.debug("resolve_auth: racing #{auth_providers.map(&:provider_name)} timeout=#{timeout}s")
           futures = auth_providers.map do |provider|
             Concurrent::Promises.future { provider.resolve }
           end
@@ -179,10 +196,13 @@ module Legion
           deadline = ::Process.clock_gettime(::Process::CLOCK_MONOTONIC) + timeout
           provider_results = {}
           auth_providers.zip(futures).each do |provider, future|
+            result = nil
             remaining = deadline - ::Process.clock_gettime(::Process::CLOCK_MONOTONIC)
             future.wait(remaining.positive? ? remaining : 0)
             result = future.value(0) if future.resolved?
             status = auth_future_status(future, result)
+            log.debug("resolve_auth: #{provider.provider_name} status=#{status}" \
+                      "#{" canonical=#{result[:canonical_name]}" if status == :resolved}")
 
             provider_results[provider.provider_name] = {
               status:      status,
@@ -195,6 +215,7 @@ module Legion
 
           resolved_entries = provider_results.select { |_, v| v[:status] == :resolved }
           if resolved_entries.empty?
+            log.debug('resolve_auth: no providers resolved')
             [nil, nil, provider_results]
           else
             winner_name = resolved_entries.min_by do |_, v|
@@ -202,6 +223,7 @@ module Legion
               [-p.priority, p.trust_weight]
             end&.first
 
+            log.debug("resolve_auth: winner=#{winner_name}")
             winner_info = provider_results[winner_name]
             [winner_info[:provider], winner_info[:result], provider_results]
           end
@@ -302,11 +324,13 @@ module Legion
         end
 
         def bind_and_persist(winning_provider, composite, trust_level)
+          log.debug("bind_and_persist: binding provider=#{winning_provider.provider_name} trust=#{trust_level}")
           Legion::Identity::Process.bind!(winning_provider, composite) if defined?(Legion::Identity::Process)
 
           if defined?(Legion::Settings) && Legion::Settings.respond_to?(:loader) && Legion::Settings.loader.respond_to?(:settings)
             Legion::Settings.loader.settings[:client] ||= {}
             Legion::Settings.loader.settings[:client][:name] = Legion::Identity::Process.queue_prefix
+            log.debug("bind_and_persist: client name set to #{Legion::Identity::Process.queue_prefix}")
           end
 
           persist_to_db(composite)
@@ -314,72 +338,26 @@ module Legion
 
           @composite.set(composite)
           @resolved.make_true
+          log.debug('bind_and_persist: resolved=true')
         end
 
-        def persist_to_db(composite) # rubocop:disable Metrics/MethodLength
-          return unless defined?(Legion::Data) && Legion::Data.respond_to?(:connected?) && Legion::Data.connected?
-
-          now = Time.now.utc
-          db = Legion::Data.db
-
-          composite[:providers]&.each_key do |name|
-            db[:identity_providers].insert_conflict(
-              target: :name,
-              update: { updated_at: now }
-            ).insert(
-              uuid:          SecureRandom.uuid,
-              name:          name.to_s,
-              provider_type: 'authenticate',
-              facing:        'both',
-              source:        'resolver',
-              enabled:       true,
-              created_at:    now,
-              updated_at:    now
-            )
+        def persist_to_db(composite)
+          unless defined?(Legion::Data) && Legion::Data.respond_to?(:connected?) && Legion::Data.connected?
+            log.debug('persist_to_db: skipped — Legion::Data not connected')
+            return
           end
 
-          db[:identity_principals].insert_conflict(
-            target: %i[canonical_name kind],
-            update: { last_seen_at: now, updated_at: now }
-          ).insert(
-            uuid:           SecureRandom.uuid,
-            canonical_name: composite[:canonical_name],
-            kind:           composite[:kind].to_s,
-            active:         true,
-            last_seen_at:   now,
-            created_at:     now,
-            updated_at:     now
-          )
+          log.debug("persist_to_db: persisting canonical=#{composite[:canonical_name]} providers=#{composite[:providers]&.keys}")
+          now            = Time.now.utc
+          provider_model = Legion::Data::Model::Identity::Provider
+          audit_model    = Legion::Data::Model::Identity::AuditLog
 
-          principal_row = db[:identity_principals].where(
-            canonical_name: composite[:canonical_name], kind: composite[:kind].to_s
-          ).first
-          principal_id = principal_row[:id] if principal_row
+          upsert_providers(composite, provider_model, now)
+          principal = upsert_principal(composite, now)
+          upsert_identities(composite, provider_model, principal, now)
 
-          composite[:aliases]&.each do |provider_name, identities|
-            provider_row = db[:identity_providers].where(name: provider_name.to_s).first
-            next unless provider_row
-
-            Array(identities).each do |ident|
-              db[:identities].insert_conflict(
-                target: %i[principal_id provider_id provider_identity_key],
-                update: { last_authenticated_at: now, updated_at: now }
-              ).insert(
-                uuid:                  SecureRandom.uuid,
-                principal_id:          principal_id,
-                provider_id:           provider_row[:id],
-                provider_identity_key: ident,
-                active:                true,
-                last_authenticated_at: now,
-                created_at:            now,
-                updated_at:            now
-              )
-            end
-          end
-
-          db[:identity_audit_log].insert(
-            uuid:           SecureRandom.uuid,
-            principal_id:   principal_id,
+          audit_model.create(
+            principal_id:   principal.id,
             event_type:     'identity.resolved',
             provider_name:  composite[:source].to_s,
             trust_level:    composite[:trust]&.to_s,
@@ -392,11 +370,79 @@ module Legion
               }
             ),
             node_ref:       composite[:node_id],
-            session_ref:    @session_id,
-            created_at:     now
+            session_ref:    @session_id
           )
         rescue StandardError => e
-          log_warn("DB persistence failed: #{e.message}")
+          log.warn("DB persistence failed: #{e.message}")
+        end
+
+        def upsert_providers(composite, provider_model, now)
+          composite[:providers]&.each_key do |name|
+            existing = provider_model.where(name: name.to_s).first
+            if existing
+              existing.update(updated_at: now)
+            else
+              provider_model.create(
+                name:          name.to_s,
+                provider_type: 'authenticate',
+                facing:        'both',
+                source:        'resolver',
+                enabled:       true
+              )
+            end
+          end
+        end
+
+        def upsert_principal(composite, now)
+          principal_model = Legion::Data::Model::Identity::Principal
+          principal = principal_model.where(
+            canonical_name: composite[:canonical_name],
+            kind:           composite[:kind].to_s
+          ).first
+
+          if principal
+            principal.update(last_seen_at: now, updated_at: now)
+            principal
+          else
+            principal_model.create(
+              canonical_name: composite[:canonical_name],
+              kind:           composite[:kind].to_s,
+              active:         true,
+              last_seen_at:   now
+            )
+          end
+        end
+
+        def upsert_identities(composite, provider_model, principal, now)
+          identity_model = Legion::Data::Model::Identity::Identity
+          composite[:aliases]&.each do |provider_name, identities|
+            provider_row = provider_model.where(name: provider_name.to_s).first
+            next unless provider_row
+
+            Array(identities).each do |ident|
+              upsert_single_identity(identity_model, principal, provider_row, ident, now)
+            end
+          end
+        end
+
+        def upsert_single_identity(identity_model, principal, provider_row, ident, now)
+          existing = identity_model.where(
+            principal_id:          principal.id,
+            provider_id:           provider_row.id,
+            provider_identity_key: ident
+          ).first
+
+          if existing
+            existing.update(last_authenticated_at: now, updated_at: now)
+          else
+            identity_model.create(
+              principal_id:          principal.id,
+              provider_id:           provider_row.id,
+              provider_identity_key: ident,
+              active:                true,
+              last_authenticated_at: now
+            )
+          end
         end
 
         def persist_identity_json(canonical_name, kind)
@@ -412,7 +458,7 @@ module Legion
                  end
           File.write(path, json)
         rescue StandardError => e
-          log_warn("identity.json write failed: #{e.message}")
+          log.warn("identity.json write failed: #{e.message}")
         end
 
         def handle_canonical_change(old_canonical, new_canonical, _composite)
@@ -424,25 +470,15 @@ module Legion
 
           return unless defined?(Legion::Data) && Legion::Data.respond_to?(:connected?) && Legion::Data.connected?
 
-          old_row = Legion::Data.db[:identity_principals].where(canonical_name: old_canonical).first
-          Legion::Data.db[:identity_audit_log].insert(
-            uuid:           SecureRandom.uuid,
-            principal_id:   old_row&.dig(:id),
+          old_principal = Legion::Data::Model::Identity::Principal.where(canonical_name: old_canonical).first
+          Legion::Data::Model::Identity::AuditLog.create(
+            principal_id:   old_principal&.id,
             event_type:     'identity.canonical_changed',
             provider_name:  'resolver',
-            detail_payload: Legion::JSON.dump({ old: old_canonical, new: new_canonical }),
-            created_at:     Time.now
+            detail_payload: Legion::JSON.dump({ old: old_canonical, new: new_canonical })
           )
         rescue StandardError => e
-          log_warn("canonical change handling failed: #{e.message}")
-        end
-
-        def log_warn(message)
-          if defined?(Legion::Logging) && Legion::Logging.respond_to?(:warn)
-            Legion::Logging.warn("[Identity::Resolver] #{message}")
-          else
-            $stderr.puts "[Identity::Resolver] #{message}" # rubocop:disable Style/StderrPuts
-          end
+          log.warn("canonical change handling failed: #{e.message}")
         end
       end
 

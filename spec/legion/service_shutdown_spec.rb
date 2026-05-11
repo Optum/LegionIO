@@ -11,6 +11,9 @@ RSpec.describe Legion::Service do
     allow(Legion::Logging).to receive(:warn)
     allow(Legion::Logging).to receive(:error)
     allow(Legion::Logging).to receive(:debug)
+    allow(Legion::Logging).to receive(:emit_tagged) do |level, msg, **|
+      Legion::Logging.public_send(level, msg) if Legion::Logging.respond_to?(level)
+    end
     allow(Legion::Events).to receive(:emit)
     allow(Legion::Settings).to receive(:[]).and_call_original
     allow(Legion::Settings).to receive(:[]).with(:client).and_return({ ready: true, shutting_down: false })

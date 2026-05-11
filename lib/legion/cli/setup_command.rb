@@ -55,8 +55,25 @@ module Legion
           description: 'LLM routing and provider integration (no cognitive stack)',
           gems:        %w[
             legion-llm lex-llm lex-llm-anthropic lex-llm-azure-foundry
-            lex-llm-bedrock lex-llm-gemini lex-llm-ledger lex-llm-mlx
+            lex-llm-bedrock lex-llm-gemini lex-llm-mlx
             lex-llm-ollama lex-llm-openai lex-llm-vertex lex-llm-vllm
+          ]
+        },
+        gaia:     {
+          description: 'Cognitive coordination engine + agentic extensions (GAIA stack)',
+          gems:        %w[
+            legion-gaia
+            lex-agentic-affect lex-agentic-attention lex-agentic-defense
+            lex-agentic-executive lex-agentic-homeostasis lex-agentic-inference
+            lex-agentic-integration lex-agentic-language lex-agentic-learning
+            lex-agentic-memory lex-agentic-self lex-agentic-social
+            lex-synapse lex-mind-growth lex-tick
+          ]
+        },
+        identity: {
+          description: 'Identity and access management (RBAC + identity providers)',
+          gems:        %w[
+            legion-rbac lex-identity-system lex-identity-kerberos
           ]
         },
         channels: {
@@ -151,6 +168,18 @@ module Legion
       option :dry_run, type: :boolean, default: false, desc: 'Show what would be installed without installing'
       def llm
         install_pack(:llm)
+      end
+
+      desc 'gaia', 'Install cognitive coordination engine and agentic extensions (GAIA stack)'
+      option :dry_run, type: :boolean, default: false, desc: 'Show what would be installed without installing'
+      def gaia
+        install_pack(:gaia)
+      end
+
+      desc 'identity', 'Install identity and access management (RBAC + identity providers)'
+      option :dry_run, type: :boolean, default: false, desc: 'Show what would be installed without installing'
+      def identity
+        install_pack(:identity)
       end
 
       desc 'channels', 'Install channel adapters (Slack, Teams)'
@@ -494,6 +523,14 @@ module Legion
             puts '  Next steps:'
             puts '    legion chat           # interactive AI conversation'
             puts '    legion llm status     # check provider connectivity'
+          when :gaia
+            puts '  Next steps:'
+            puts '    legion start          # start daemon with cognitive stack'
+            puts '    legion start --lite   # single-process, no external services'
+          when :identity
+            puts '  Next steps:'
+            puts '    Configure RBAC in settings: {"rbac": {"enabled": true}}'
+            puts '    legion start          # start daemon with identity services'
           when :channels
             puts '  Next steps:'
             puts '    Configure channels in settings: {"gaia": {"channels": {"slack": {"enabled": true}}}}'

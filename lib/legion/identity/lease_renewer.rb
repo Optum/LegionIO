@@ -5,6 +5,8 @@ require 'concurrent'
 module Legion
   module Identity
     class LeaseRenewer
+      include Legion::Logging::Helper
+
       attr_reader :provider_name, :provider
 
       BACKOFF_SLEEP  = 5
@@ -70,11 +72,10 @@ module Legion
       end
 
       def log_renewal_failure(error)
-        message = "[LeaseRenewer][#{@provider_name}] renewal failed: #{error.message}"
-        if defined?(Legion::Logging) && Legion::Logging.respond_to?(:warn)
-          Legion::Logging.warn(message)
+        if defined?(Legion::Logging)
+          log.warn("renewal failed: #{error.message}")
         else
-          $stderr.puts message # rubocop:disable Style/StderrPuts
+          $stderr.puts "[LeaseRenewer][#{@provider_name}] renewal failed: #{error.message}" # rubocop:disable Style/StderrPuts
         end
       end
     end

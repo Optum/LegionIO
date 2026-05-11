@@ -28,7 +28,6 @@ RSpec.describe Legion::CLI::Setup do
         lex-llm-azure-foundry
         lex-llm-bedrock
         lex-llm-gemini
-        lex-llm-ledger
         lex-llm-mlx
         lex-llm-ollama
         lex-llm-openai
@@ -41,7 +40,7 @@ RSpec.describe Legion::CLI::Setup do
       llm_gems = described_class::PACKS.fetch(:llm).fetch(:gems)
 
       expect(llm_gems).to include(*native_llm_gems)
-      expect(llm_gems).not_to include('lex-llm-gateway')
+      expect(llm_gems).not_to include('lex-llm-gateway', 'lex-llm-ledger')
     end
 
     it 'uses the Legion-native provider stack in the agentic pack' do
@@ -58,6 +57,29 @@ RSpec.describe Legion::CLI::Setup do
         'lex-openai',
         'lex-xai'
       )
+    end
+  end
+
+  describe 'GAIA pack definition' do
+    it 'includes legion-gaia, all lex-agentic-* gems, lex-synapse, lex-mind-growth, and lex-tick' do
+      gaia_gems = described_class::PACKS.fetch(:gaia).fetch(:gems)
+
+      expect(gaia_gems).to include('legion-gaia')
+      expect(gaia_gems).to include(
+        'lex-agentic-affect', 'lex-agentic-attention', 'lex-agentic-defense',
+        'lex-agentic-executive', 'lex-agentic-homeostasis', 'lex-agentic-inference',
+        'lex-agentic-integration', 'lex-agentic-language', 'lex-agentic-learning',
+        'lex-agentic-memory', 'lex-agentic-self', 'lex-agentic-social'
+      )
+      expect(gaia_gems).to include('lex-synapse', 'lex-mind-growth', 'lex-tick')
+    end
+  end
+
+  describe 'identity pack definition' do
+    it 'includes legion-rbac, lex-identity-system, and lex-identity-kerberos' do
+      identity_gems = described_class::PACKS.fetch(:identity).fetch(:gems)
+
+      expect(identity_gems).to include('legion-rbac', 'lex-identity-system', 'lex-identity-kerberos')
     end
   end
 

@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+## [1.9.29] - 2026-05-11
+
+### Fixed
+- `Subscription#activate` now checks `channel.open?` before calling `subscribe_with`; if closed, it re-prepares once and retries, preventing silent activation failures when a channel is closed between prepare and activate.
+- `Transport` mixin now guards `auto_create_dlx_exchange` and `auto_create_dlx_queue` with a `remote_invocable?` check — non-remote extensions no longer attempt to create dead-letter exchanges and queues they never use.
+- DLX exchange type corrected from `fanout` to `topic` for consistency with the rest of the exchange topology.
+- Identity resolver DB persistence now uses Sequel models (`Identity::Provider`, `Identity::Principal`, `Identity::Identity`, `Identity::AuditLog`) instead of raw `Legion::Data.db` dataset calls that didn't exist on the module.
+- Identity audit API endpoint now references correct column names (`detail_payload`, `node_ref`, `session_ref`) matching the schema.
+- Fixed `LeaseRenewer#log_renewal_failure` to fall back to `$stderr` when `Legion::Logging` is not yet loaded, matching the original contract.
+- Fixed `Legion::Service#log_privacy_mode_status`, `#shutdown_component`, and TLS-fallback logging specs to assert against `emit_tagged` (the actual dispatch path used by `Legion::Logging::Helper`) rather than `Legion::Logging.warn/info` directly.
+- Fixed `Cluster::Leader` boot integration spec to stub `Legion::Settings[:logging]` so `log` helper initialization does not raise on unexpectedly-received arguments.
+
+### Changed
+- Added `remote_invocable_extension?` helper to the `Transport` module; returns `lex_class.remote_invocable?` when available, `true` otherwise.
+- Refactored `Identity::Resolver#persist_to_db` into extracted helpers (`upsert_providers`, `upsert_principal`, `upsert_identities`, `upsert_single_identity`) to reduce method complexity and improve readability.
+- Replaced hand-rolled `log_warn`/`log_debug` methods in `Identity::Resolver`, `Identity::Broker`, and `Identity::LeaseRenewer` with `include Legion::Logging::Helper` and standard `log.debug`/`log.warn` calls.
+- Added debug logging throughout `Identity::Resolver` for registration, resolution, auth racing, binding, and DB persistence.
+- LLM inference API now passes `instance` and `tier` routing hints from request body through to `Legion::LLM::Inference::Request`.
+
 ## [1.9.28] - 2026-05-08
 
 ### Fixed

@@ -7,24 +7,28 @@ RSpec.describe 'Enterprise privacy mode audit logging' do
     context 'when privacy mode is enabled' do
       before do
         allow(Legion::Settings).to receive(:enterprise_privacy?).and_return(true)
+        allow(Legion::Settings).to receive(:[]).with(:logging).and_return(nil)
+        allow(Legion::Logging).to receive(:info)
+        allow(Legion::Logging).to receive(:emit_tagged)
       end
 
       it 'logs an info entry when privacy mode is enabled' do
-        allow(Legion::Logging).to receive(:info)
         Legion::Service.log_privacy_mode_status
-        expect(Legion::Logging).to have_received(:info).with(/enterprise_data_privacy.*enabled/)
+        expect(Legion::Logging).to have_received(:emit_tagged).with(:info, /enterprise_data_privacy.*enabled/, any_args)
       end
     end
 
     context 'when privacy mode is disabled' do
       before do
         allow(Legion::Settings).to receive(:enterprise_privacy?).and_return(false)
+        allow(Legion::Settings).to receive(:[]).with(:logging).and_return(nil)
+        allow(Legion::Logging).to receive(:info)
+        allow(Legion::Logging).to receive(:emit_tagged)
       end
 
       it 'logs an info entry indicating privacy is disabled' do
-        allow(Legion::Logging).to receive(:info)
         Legion::Service.log_privacy_mode_status
-        expect(Legion::Logging).to have_received(:info).with(/enterprise_data_privacy.*disabled/)
+        expect(Legion::Logging).to have_received(:emit_tagged).with(:info, /enterprise_data_privacy.*disabled/, any_args)
       end
     end
 

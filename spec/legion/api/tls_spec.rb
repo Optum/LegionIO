@@ -77,8 +77,12 @@ RSpec.describe Legion::Service do
         allow(Legion::Settings).to receive(:[]).with(:api).and_return(
           api_defaults.merge(tls: { enabled: true, cert: nil, key: nil })
         )
+        allow(Legion::Settings).to receive(:[]).with(:logging).and_return(nil)
         allow(Legion::Logging).to receive(:warn)
         allow(Legion::Logging).to receive(:error)
+        allow(Legion::Logging).to receive(:emit_tagged) do |level, msg, **|
+          Legion::Logging.public_send(level, msg) if Legion::Logging.respond_to?(level)
+        end
       end
 
       it 'logs a warning and falls back to plain HTTP' do
