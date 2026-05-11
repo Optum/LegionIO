@@ -10,6 +10,8 @@ module Legion
       AUDIT_DROP_LOG_INTERVAL = 100
 
       class << self
+        include Legion::Logging::Helper
+
         def token_for(provider_name, qualifier: nil, for_context: nil, purpose: nil, context: nil)
           name = provider_name.to_sym
           resolved = resolve_qualifier(name, qualifier: qualifier, for_context: for_context)
@@ -235,7 +237,7 @@ module Legion
 
           if audit_queue.size >= AUDIT_QUEUE_MAX
             drops = (@audit_drops ||= Concurrent::AtomicFixnum.new(0)).increment
-            log_warn("Audit queue full, dropping event (total drops: #{drops})") if (drops % AUDIT_DROP_LOG_INTERVAL).zero?
+            log.warn("Audit queue full, dropping event (total drops: #{drops})") if (drops % AUDIT_DROP_LOG_INTERVAL).zero?
           else
             audit_queue.push(event)
           end
@@ -289,7 +291,7 @@ module Legion
             nil
           end
         rescue StandardError => e
-          log_warn("Broker.db_groups failed: #{e.message}")
+          log.warn("Broker.db_groups failed: #{e.message}")
           []
         end
 
@@ -297,14 +299,6 @@ module Legion
           defined?(Legion::Data) &&
             Legion::Data.respond_to?(:connected?) &&
             Legion::Data.connected?
-        end
-
-        def log_warn(message)
-          if defined?(Legion::Logging) && Legion::Logging.respond_to?(:warn)
-            Legion::Logging.warn("[Identity::Broker] #{message}")
-          else
-            $stderr.puts "[Identity::Broker] #{message}" # rubocop:disable Style/StderrPuts
-          end
         end
       end
 

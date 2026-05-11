@@ -102,6 +102,9 @@ RSpec.describe 'Cluster::Leader boot integration' do
   before do
     allow(Legion::Logging).to receive(:info)
     allow(Legion::Logging).to receive(:warn)
+    allow(Legion::Logging).to receive(:emit_tagged)
+    allow(Legion::Settings).to receive(:[]).and_call_original
+    allow(Legion::Settings).to receive(:[]).with(:logging).and_return(nil)
   end
 
   context 'when cluster.leader_election is true' do

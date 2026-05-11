@@ -268,16 +268,19 @@ module Legion
                          end
 
             caller_metadata = body[:metadata].is_a?(Hash) ? body[:metadata] : {}
+            instance = body[:instance]
+            tier     = body[:tier]
             request_args = {
               messages:        messages,
               system:          body[:system],
-              routing:         { provider: provider, model: model },
+              routing:         { provider: provider, model: model, instance: instance }.compact,
               caller:          caller_ctx,
               conversation_id: body[:conversation_id],
               metadata:        caller_metadata.merge(requested_tools: requested_tools),
               stream:          streaming,
               cache:           { strategy: :default, cacheable: true }
             }
+            request_args[:extra] = { tier: tier.to_sym } if tier
             request_args[:tools] = tool_classes if tools_present
 
             req = Legion::LLM::Inference::Request.build(**request_args)

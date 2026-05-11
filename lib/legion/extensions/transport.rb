@@ -71,6 +71,8 @@ module Legion
       end
 
       def auto_create_dlx_exchange
+        return unless remote_invocable_extension?
+
         dlx = if transport_class::Exchanges.const_defined?('Dlx', false)
                 transport_class::Exchanges::Dlx
               else
@@ -80,7 +82,7 @@ module Legion
                   end
 
                   def default_type
-                    'fanout'
+                    'topic'
                   end
                 end)
               end
@@ -89,6 +91,7 @@ module Legion
       end
 
       def auto_create_dlx_queue
+        return unless remote_invocable_extension?
         return if transport_class::Queues.const_defined?('Dlx', false)
 
         special_name = default_exchange.new.exchange_name
@@ -206,6 +209,12 @@ module Legion
 
       def additional_e_to_q
         []
+      end
+
+      def remote_invocable_extension?
+        return lex_class.remote_invocable? if lex_class.respond_to?(:remote_invocable?)
+
+        true
       end
     end
   end

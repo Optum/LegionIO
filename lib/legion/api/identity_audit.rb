@@ -35,8 +35,8 @@ module Legion
             records = dataset.order(Sequel.desc(:created_at)).limit(100).all
             json_collection(records.map do |r|
               { id: r.id, event_type: r.event_type, provider_name: r.provider_name,
-                trust_level: r.trust_level, detail: r.detail,
-                node_id: r.node_id, session_id: r.session_id, created_at: r.created_at }
+                trust_level: r.trust_level, detail_payload: r.detail_payload,
+                node_ref: r.node_ref, session_ref: r.session_ref, created_at: r.created_at }
             end)
           end
         end
