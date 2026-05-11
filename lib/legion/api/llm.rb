@@ -280,7 +280,11 @@ module Legion
               stream:          streaming,
               cache:           { strategy: :default, cacheable: true }
             }
-            request_args[:extra] = { tier: tier.to_sym } if tier
+            if tier
+              halt 400, Legion::JSON.dump({ error: 'invalid tier' }) unless tier.is_a?(String)
+              halt 400, Legion::JSON.dump({ error: 'invalid tier' }) unless %w[local fleet auto].include?(tier)
+              request_args[:extra] = { tier: tier.to_sym }
+            end
             request_args[:tools] = tool_classes if tools_present
 
             req = Legion::LLM::Inference::Request.build(**request_args)

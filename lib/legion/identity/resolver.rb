@@ -196,6 +196,7 @@ module Legion
           deadline = ::Process.clock_gettime(::Process::CLOCK_MONOTONIC) + timeout
           provider_results = {}
           auth_providers.zip(futures).each do |provider, future|
+            result = nil
             remaining = deadline - ::Process.clock_gettime(::Process::CLOCK_MONOTONIC)
             future.wait(remaining.positive? ? remaining : 0)
             result = future.value(0) if future.resolved?

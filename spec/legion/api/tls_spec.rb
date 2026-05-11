@@ -87,9 +87,6 @@ RSpec.describe Legion::Service do
 
       it 'logs a warning and falls back to plain HTTP' do
         expect(Legion::Logging).to receive(:warn).with(match(/api.tls/i))
-        allow(Legion::Logging).to receive(:emit_tagged) do |level, msg, **|
-          Legion::Logging.public_send(level, msg) if Legion::Logging.respond_to?(level)
-        end
         allow(Thread).to receive(:new).and_return(double(join: nil))
         allow(Legion::API).to receive(:set)
         service.send(:setup_api)
