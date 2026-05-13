@@ -28,38 +28,32 @@ module Legion
       }.freeze
 
       PACKS = {
-        agentic:  {
-          description: 'Full cognitive stack: core libs, agentic domains, AI providers, and operational extensions',
+        agentic:   {
+          description: 'Cognitive stack: agentic domains, AI providers, and coordination',
           gems:        %w[
             legion-apollo legion-gaia legion-llm legion-mcp legion-rbac
             lex-acp lex-adapter lex-agentic-affect lex-agentic-attention
             lex-agentic-defense lex-agentic-executive lex-agentic-homeostasis
             lex-agentic-imagination lex-agentic-inference lex-agentic-integration
             lex-agentic-language lex-agentic-learning lex-agentic-memory
-            lex-agentic-self lex-agentic-social lex-apollo lex-audit lex-autofix
-            lex-codegen lex-coldstart
-            lex-conditioner lex-cost-scanner lex-dataset lex-detect
-            lex-eval lex-exec lex-extinction lex-factory lex-finops
-            lex-governance lex-kerberos lex-knowledge lex-llm
-            lex-llm-anthropic lex-llm-azure-foundry lex-llm-bedrock
-            lex-llm-gemini lex-llm-mlx
-            lex-llm-ollama lex-llm-openai lex-llm-vertex lex-llm-vllm
-            lex-metering lex-mesh lex-microsoft_teams lex-mind-growth lex-node
-            lex-onboard lex-pilot-infra-monitor
-            lex-pilot-knowledge-assist lex-privatecore lex-prompt lex-react
-            lex-swarm lex-swarm-github lex-synapse lex-telemetry lex-tick
-            lex-transformer
+            lex-agentic-self lex-agentic-social lex-apollo lex-coldstart
+            lex-conditioner lex-detect lex-extinction lex-kerberos lex-knowledge
+            lex-llm lex-llm-anthropic lex-llm-azure-foundry lex-llm-bedrock
+            lex-llm-gemini lex-llm-mlx lex-llm-ollama lex-llm-openai
+            lex-llm-vertex lex-llm-vllm lex-metering lex-mesh
+            lex-microsoft_teams lex-mind-growth lex-node lex-privatecore
+            lex-synapse lex-telemetry lex-tick
           ]
         },
-        llm:      {
+        llm:       {
           description: 'LLM routing and provider integration (no cognitive stack)',
           gems:        %w[
-            legion-llm lex-llm lex-llm-anthropic lex-llm-azure-foundry
+            legion-llm legion-mcp lex-llm lex-llm-anthropic lex-llm-azure-foundry
             lex-llm-bedrock lex-llm-gemini lex-llm-mlx
             lex-llm-ollama lex-llm-openai lex-llm-vertex lex-llm-vllm
           ]
         },
-        gaia:     {
+        gaia:      {
           description: 'Cognitive coordination engine + agentic extensions (GAIA stack)',
           gems:        %w[
             legion-gaia
@@ -70,13 +64,20 @@ module Legion
             lex-synapse lex-mind-growth lex-tick
           ]
         },
-        identity: {
+        identity:  {
           description: 'Identity and access management (RBAC + identity providers)',
           gems:        %w[
-            legion-rbac lex-identity-system lex-identity-kerberos
+            legion-rbac lex-identity-system lex-identity-kerberos lex-kerberos
           ]
         },
-        channels: {
+        developer: {
+          description: 'Developer tooling and CI/CD integrations',
+          gems:        %w[
+            lex-developer lex-dynatrace lex-eval lex-exec lex-github
+            lex-http lex-jfrog lex-skill-superpowers lex-ssh
+          ]
+        },
+        channels:  {
           description: 'Channel adapters for chat platforms',
           gems:        %w[lex-slack lex-microsoft_teams]
         }

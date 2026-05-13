@@ -5,7 +5,10 @@
 ## [1.9.30] - 2026-05-12
 
 ### Changed
-- Removed `lex-llm-ledger` from the agentic setup pack; it is now opt-in via `legionio install lex-llm-ledger`.
+- Slimmed agentic pack to only cognitive/coordination extensions; removed non-agentic gems (`lex-audit`, `lex-autofix`, `lex-codegen`, `lex-cost-scanner`, `lex-dataset`, `lex-factory`, `lex-finops`, `lex-governance`, `lex-llm-ledger`, `lex-onboard`, `lex-pilot-infra-monitor`, `lex-pilot-knowledge-assist`, `lex-prompt`, `lex-react`, `lex-swarm`, `lex-swarm-github`, `lex-transformer`).
+- Added `legion-mcp` to the LLM pack.
+- Added `lex-kerberos` to the identity pack.
+- Added new `developer` pack: `lex-developer`, `lex-dynatrace`, `lex-eval`, `lex-exec`, `lex-github`, `lex-http`, `lex-jfrog`, `lex-skill-superpowers`, `lex-ssh`.
 
 ## [1.9.29] - 2026-05-11
 
