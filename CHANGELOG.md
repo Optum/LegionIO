@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.9.30] - 2026-05-12
+
+### Changed
+- Removed `lex-llm-ledger` from the agentic setup pack; it is now opt-in via `legionio install lex-llm-ledger`.
+
 ## [1.9.29] - 2026-05-11
 
 ### Fixed
