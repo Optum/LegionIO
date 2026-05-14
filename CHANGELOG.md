@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.9.31] - 2026-05-14
+
+### Added
+- `GET /api/identity` endpoint returning live process identity, provider resolution status, and registered provider metadata.
+- `autobuild_submodules` recursive walk in `Legion::Extensions` — nested sub-modules (e.g. `Delegated`, `Application`, `ManagedIdentity`, `WorkloadIdentity` inside `lex-identity-entra`) now have their actors autobuilt and started.
+
+### Fixed
+- `Extensions::Helpers::Base#full_path` now walks up gem name segments to find the parent gem when a sub-module gem doesn't exist as a standalone gem (e.g. `lex-identity-entra-delegated`).
+
 ## [1.9.30] - 2026-05-12
 
 ### Changed

@@ -28,6 +28,18 @@ def local_gem_path(name, default_path, version_file, requirement)
   default_path
 end
 
+gem 'lex-jira', path: '../extensions-other/lex-jira'
+
+if File.exist?(File.expand_path('../extensions-identity/lex-identity-entra', __dir__))
+  gem 'lex-identity-entra', path: '../extensions-identity/lex-identity-entra'
+end
+if File.exist?(File.expand_path('../extensions-identity/lex-identity-kerberos', __dir__))
+  gem 'lex-identity-kerberos', path: '../extensions-identity/lex-identity-kerberos'
+end
+if File.exist?(File.expand_path('../extensions-identity/lex-identity-system', __dir__))
+  gem 'lex-identity-system', path: '../extensions-identity/lex-identity-system'
+end
+
 gem 'legion-apollo', path: '../legion-apollo' if File.exist?(File.expand_path('../legion-apollo', __dir__))
 gem 'legion-data', path: '../legion-data' if File.exist?(File.expand_path('../legion-data', __dir__))
 gem 'legion-logging', path: '../legion-logging' if File.exist?(File.expand_path('../legion-logging', __dir__))
