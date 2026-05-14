@@ -7,6 +7,26 @@ module Legion
         def self.registered(app)
           app.helpers IdentityAuditHelpers
 
+          app.get '/api/identity' do
+            identity = defined?(Legion::Identity::Process) ? Legion::Identity::Process.identity_hash : {}
+
+            registered_providers = if defined?(Legion::Identity::Resolver)
+                                     Legion::Identity::Resolver.providers.map do |p|
+                                       {
+                                         name:         p.provider_name,
+                                         type:         p.provider_type,
+                                         trust_level:  p.trust_level,
+                                         priority:     p.respond_to?(:priority) ? p.priority : nil,
+                                         capabilities: p.respond_to?(:capabilities) ? p.capabilities : []
+                                       }
+                                     end
+                                   else
+                                     []
+                                   end
+
+            json_response(identity.merge(registered_providers: registered_providers))
+          end
+
           app.get '/api/identity/audit' do
             require_data!
             halt 503, json_error('unavailable', 'identity audit log not available') unless defined?(Legion::Data::Model::Identity::AuditLog)

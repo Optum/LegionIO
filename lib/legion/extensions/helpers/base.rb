@@ -95,19 +95,35 @@ module Legion
         end
 
         def full_path
-          @full_path ||= begin
-            base_name = segments.join('-')
-            gem_name = "lex-#{base_name}"
+          @full_path ||= find_gem_path
+        end
+
+        def find_gem_path
+          segs = segments.dup
+          gem_dir = nil
+          while segs.length >= 1
+            base_name = segs.join('-')
+            gem_name  = "lex-#{base_name}"
             gem_dir = begin
               Gem::Specification.find_by_name(gem_name).gem_dir
             rescue Gem::MissingSpecError
-              Gem::Specification.find_by_name("lex-#{base_name.tr('_', '-')}").gem_dir
+              begin
+                Gem::Specification.find_by_name("lex-#{base_name.tr('_', '-')}").gem_dir
+              rescue Gem::MissingSpecError
+                segs.pop
+                next
+              end
             end
-            require_path = Helpers::Segments.derive_require_path(gem_name)
-            "#{gem_dir}/lib/#{require_path}"
+            break
           end
-        rescue Gem::MissingSpecError => e
-          Legion::Logging.error "#{e.class} => #{e.message}"
+
+          unless gem_dir
+            Legion::Logging.error "#{self.class}: could not find gem for segments #{segments.inspect}"
+            return nil
+          end
+
+          require_path = Helpers::Segments.derive_require_path("lex-#{segments.join('-')}")
+          "#{gem_dir}/lib/#{require_path}"
         end
         alias extension_path full_path
 

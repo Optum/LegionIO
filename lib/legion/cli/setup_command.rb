@@ -67,7 +67,7 @@ module Legion
         identity:  {
           description: 'Identity and access management (RBAC + identity providers)',
           gems:        %w[
-            legion-rbac lex-identity-system lex-identity-kerberos lex-kerberos
+            legion-rbac lex-identity-entra lex-identity-kerberos lex-identity-system lex-kerberos
           ]
         },
         developer: {

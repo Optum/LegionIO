@@ -89,6 +89,7 @@ RSpec.describe Legion::Service do
         expect(Legion::Logging).to receive(:warn).with(match(/api.tls/i))
         allow(Thread).to receive(:new).and_return(double(join: nil))
         allow(Legion::API).to receive(:set)
+        allow(Legion::API).to receive(:use)
         service.send(:setup_api)
       end
     end

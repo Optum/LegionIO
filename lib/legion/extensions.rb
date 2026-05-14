@@ -9,6 +9,8 @@ require 'legion/runner'
 
 module Legion
   module Extensions
+    SUBMODULE_SKIP = %i[VERSION Actor Actors Runners Helpers Transport Data].freeze
+
     class << self
       def setup
         hook_extensions
@@ -299,6 +301,8 @@ module Legion
           extension.log.debug("deferring literal actor: #{actor}") if has_logger
           @pending_actors << actor
         end
+
+        autobuild_submodules(extension, has_logger)
         extension.log.info "Loaded v#{extension::VERSION}"
         Legion::Events.emit('extension.loaded', name: ext_name, version: entry[:gem_name])
 
@@ -492,6 +496,51 @@ module Legion
       end
 
       private
+
+      def autobuild_submodules(extension, has_logger)
+        return unless extension.is_a?(Module)
+
+        extension.constants(false).each do |const_name|
+          next if SUBMODULE_SKIP.include?(const_name)
+
+          submod = extension.const_get(const_name, false)
+          next unless submod.is_a?(Module) && submod.respond_to?(:autobuild)
+
+          autobuild_one_submodule(extension, submod, const_name, has_logger)
+        rescue StandardError => e
+          Legion::Logging.warn "autobuild_submodules: failed for #{extension}::#{const_name} — #{e.message}" if defined?(Legion::Logging)
+        end
+      end
+
+      def autobuild_one_submodule(extension, submod, const_name, has_logger)
+        submod.autobuild
+        collect_submodule_actors(submod, has_logger)
+        register_submodule_capabilities(extension, submod, const_name)
+        autobuild_submodules(submod, has_logger)
+      end
+
+      def collect_submodule_actors(submod, has_logger)
+        if submod.respond_to?(:meta_actors) && submod.meta_actors.is_a?(Hash)
+          submod.meta_actors.each_value do |actor|
+            submod.log.debug("deferring submodule meta actor: #{actor}") if has_logger
+            @pending_actors << actor
+          end
+        end
+
+        return unless submod.respond_to?(:actors)
+
+        submod.actors.each_value do |actor|
+          submod.log.debug("deferring submodule literal actor: #{actor}") if has_logger
+          @pending_actors << actor
+        end
+      end
+
+      def register_submodule_capabilities(extension, submod, const_name)
+        return unless submod.respond_to?(:runners)
+
+        prefix = extension.respond_to?(:lex_name) ? extension.lex_name : extension.name
+        register_capabilities("#{prefix}/#{const_name}", submod.runners)
+      end
 
       def write_lex_cli_manifest(entry, extension)
         require 'legion/cli/lex_cli_manifest'
