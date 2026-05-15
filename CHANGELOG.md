@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.9.33] - 2026-05-15
+
+### Added
+- `Legion::Identity::Process` stores and exposes `db_principal_id` and `db_identity_id` integer PKs — present in `EMPTY_STATE`, persisted through `bind!`, and included in `identity_hash`. Both default to nil until an identity provider populates them.
+
 ## [1.9.32] - 2026-05-14
 
 ### Removed
