@@ -8,17 +8,19 @@ module Legion
   module Identity
     module Process
       EMPTY_STATE = {
-        id:             nil,
-        canonical_name: nil,
-        kind:           nil,
-        source:         nil,
-        persistent:     false,
-        groups:         [].freeze,
-        metadata:       {}.freeze,
-        trust:          nil,
-        aliases:        {}.freeze,
-        providers:      {}.freeze,
-        profile:        {}.freeze
+        id:              nil,
+        canonical_name:  nil,
+        kind:            nil,
+        source:          nil,
+        persistent:      false,
+        groups:          [].freeze,
+        metadata:        {}.freeze,
+        trust:           nil,
+        aliases:         {}.freeze,
+        providers:       {}.freeze,
+        profile:         {}.freeze,
+        db_principal_id: nil,
+        db_identity_id:  nil
       }.freeze
 
       class << self
@@ -78,22 +80,32 @@ module Legion
           @state.get[:profile] || {}.freeze
         end
 
+        def db_principal_id
+          @state.get[:db_principal_id]
+        end
+
+        def db_identity_id
+          @state.get[:db_identity_id]
+        end
+
         def identity_hash
           {
-            id:             id,
-            canonical_name: canonical_name,
-            kind:           kind,
-            source:         source,
-            mode:           mode,
-            queue_prefix:   queue_prefix,
-            resolved:       resolved?,
-            persistent:     persistent?,
-            groups:         @state.get[:groups] || [],
-            metadata:       @state.get[:metadata] || {},
-            trust:          trust,
-            aliases:        aliases,
-            providers:      providers,
-            profile:        profile
+            id:              id,
+            canonical_name:  canonical_name,
+            kind:            kind,
+            source:          source,
+            mode:            mode,
+            queue_prefix:    queue_prefix,
+            resolved:        resolved?,
+            persistent:      persistent?,
+            groups:          @state.get[:groups] || [],
+            metadata:        @state.get[:metadata] || {},
+            trust:           trust,
+            aliases:         aliases,
+            providers:       providers,
+            profile:         profile,
+            db_principal_id: @state.get[:db_principal_id],
+            db_identity_id:  @state.get[:db_identity_id]
           }
         end
 
@@ -101,17 +113,19 @@ module Legion
           @provider = provider
           provider_source = provider.respond_to?(:provider_name) ? provider.provider_name : nil
           @state.set({
-                       id:             identity_hash[:id],
-                       canonical_name: identity_hash[:canonical_name],
-                       kind:           identity_hash[:kind],
-                       source:         identity_hash.key?(:source) ? identity_hash[:source] : provider_source,
-                       persistent:     identity_hash.fetch(:persistent, true),
-                       groups:         Array(identity_hash[:groups]).compact.freeze,
-                       metadata:       identity_hash[:metadata].is_a?(Hash) ? identity_hash[:metadata].dup.freeze : {}.freeze,
-                       trust:          identity_hash[:trust],
-                       aliases:        identity_hash[:aliases].is_a?(Hash) ? identity_hash[:aliases].dup.freeze : {}.freeze,
-                       providers:      identity_hash[:providers].is_a?(Hash) ? identity_hash[:providers].dup.freeze : {}.freeze,
-                       profile:        identity_hash[:profile].is_a?(Hash) ? identity_hash[:profile].dup.freeze : {}.freeze
+                       id:              identity_hash[:id],
+                       canonical_name:  identity_hash[:canonical_name],
+                       kind:            identity_hash[:kind],
+                       source:          identity_hash.key?(:source) ? identity_hash[:source] : provider_source,
+                       persistent:      identity_hash.fetch(:persistent, true),
+                       groups:          Array(identity_hash[:groups]).compact.freeze,
+                       metadata:        identity_hash[:metadata].is_a?(Hash) ? identity_hash[:metadata].dup.freeze : {}.freeze,
+                       trust:           identity_hash[:trust],
+                       aliases:         identity_hash[:aliases].is_a?(Hash) ? identity_hash[:aliases].dup.freeze : {}.freeze,
+                       providers:       identity_hash[:providers].is_a?(Hash) ? identity_hash[:providers].dup.freeze : {}.freeze,
+                       profile:         identity_hash[:profile].is_a?(Hash) ? identity_hash[:profile].dup.freeze : {}.freeze,
+                       db_principal_id: identity_hash[:db_principal_id],
+                       db_identity_id:  identity_hash[:db_identity_id]
                      })
           @resolved.make_true
         end

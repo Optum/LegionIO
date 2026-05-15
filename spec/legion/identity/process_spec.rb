@@ -242,8 +242,17 @@ RSpec.describe Legion::Identity::Process do
       expect(hash[:metadata]).to eq({})
     end
 
-    it 'returns a Hash with exactly 14 keys' do
-      expect(hash.keys).to match_array(%i[id canonical_name kind source mode queue_prefix resolved persistent groups metadata trust aliases providers profile])
+    it 'returns a Hash with exactly 16 keys' do
+      expect(hash.keys).to match_array(%i[id canonical_name kind source mode queue_prefix resolved persistent groups metadata trust aliases providers profile
+                                          db_principal_id db_identity_id])
+    end
+
+    it 'has nil db_principal_id when not bound with db fields' do
+      expect(hash[:db_principal_id]).to be_nil
+    end
+
+    it 'has nil db_identity_id when not bound with db fields' do
+      expect(hash[:db_identity_id]).to be_nil
     end
 
     context 'when the provider exposes provider_name' do
@@ -259,6 +268,26 @@ RSpec.describe Legion::Identity::Process do
 
       it 'includes source from provider.provider_name' do
         expect(hash[:source]).to eq(:custom_provider)
+      end
+    end
+
+    context 'when bound with db integer PKs' do
+      before do
+        described_class.reset!
+        described_class.bind!(double('provider', provider_name: 'test'), {
+                                id:              fixed_uuid,
+                                canonical_name:  'hash-test',
+                                kind:            :machine,
+                                persistent:      true,
+                                db_principal_id: 42,
+                                db_identity_id:  99
+                              })
+      end
+
+      it 'includes db_principal_id and db_identity_id' do
+        h = described_class.identity_hash
+        expect(h[:db_principal_id]).to eq(42)
+        expect(h[:db_identity_id]).to eq(99)
       end
     end
 
@@ -350,6 +379,30 @@ RSpec.describe Legion::Identity::Process do
       it 'does not raise' do
         expect { described_class.refresh_credentials }.not_to raise_error
       end
+    end
+  end
+
+  describe '#db_principal_id' do
+    it 'returns nil before bind' do
+      expect(described_class.db_principal_id).to be_nil
+    end
+
+    it 'returns integer after bind with db_principal_id' do
+      described_class.bind!(double('provider', provider_name: 'test'),
+                            { canonical_name: 'alice', kind: :human, db_principal_id: 42, db_identity_id: 99 })
+      expect(described_class.db_principal_id).to eq(42)
+    end
+  end
+
+  describe '#db_identity_id' do
+    it 'returns nil before bind' do
+      expect(described_class.db_identity_id).to be_nil
+    end
+
+    it 'returns integer after bind with db_identity_id' do
+      described_class.bind!(double('provider', provider_name: 'test'),
+                            { canonical_name: 'alice', kind: :human, db_principal_id: 42, db_identity_id: 99 })
+      expect(described_class.db_identity_id).to eq(99)
     end
   end
 

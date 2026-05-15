@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+## [1.9.33] - 2026-05-15
+
+### Added
+- `Legion::Identity::Process` stores and exposes `db_principal_id` and `db_identity_id` integer PKs — present in `EMPTY_STATE`, persisted through `bind!`, and included in `identity_hash`. Both default to nil until an identity provider populates them.
+
+## [1.9.32] - 2026-05-14
+
+### Removed
+- Removed `gem 'ruby_llm'` dependency from Gemfile; all 40 CLI chat tools now use `Legion::Tools::Base` natively.
+
+### Changed
+- Migrated all 40 CLI chat tool classes from `RubyLLM::Tool` to `Legion::Tools::Base`:
+  - `param` DSL replaced with `input_schema` (JSON Schema hash)
+  - `def execute` instance method replaced with `def self.call` class method
+  - Explicit `tool_name 'legion.<snake_case>'` added to each tool
+  - Private instance helpers converted to class methods
+- Updated `tool_registry.rb`: removed `require 'ruby_llm'` and `begin/rescue LoadError` guard.
+- Updated `extension_tool_loader.rb`: `klass < RubyLLM::Tool` changed to `klass < Legion::Tools::Base`.
+- Updated `generate_command.rb` tool template to emit `Legion::Tools::Base` with `input_schema` and `def self.call`.
+- `Permissions::Gate` now prepends on the singleton class to intercept `self.call` correctly.
+
 ## [1.9.31] - 2026-05-14
 
 ### Added
