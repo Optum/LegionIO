@@ -32,35 +32,8 @@ module Legion
 
         def self.register_tools_route(app)
           app.get '/api/extensions/tools' do
-            entries = Array(Legion::Settings::Extensions.tools)
-
-            entries = entries.select { |e| e[:extension].to_s == params[:extension] } if params[:extension]
-            entries = entries.select { |e| e[:runner].to_s == params[:runner] } if params[:runner]
-            entries = entries.select { |e| e[:deferred] == (params[:deferred] == 'true') } if params.key?(:deferred)
-            entries = entries.select { |e| Array(e[:trigger_words]).any? } if params[:triggered] == 'true'
-
-            if params[:extension_filter]
-              mod_name = params[:extension_filter]
-              ext_mod = find_extension_module(mod_name.delete_prefix('lex-'))
-              if ext_mod
-                entries = entries.select { |e| e[:deferred] == false } if ext_mod.respond_to?(:mcp_tools_deferred?) && !ext_mod.mcp_tools_deferred?
-                entries = [] if ext_mod.respond_to?(:mcp_tools?) && !ext_mod.mcp_tools?
-              end
-            end
-
-            tools = entries.map do |e|
-              {
-                name:          e[:name],
-                description:   e[:description],
-                extension:     e[:extension],
-                runner:        e[:runner],
-                deferred:      e[:deferred],
-                trigger_words: e[:trigger_words],
-                source:        e[:source],
-                sticky:        e[:sticky]
-              }.compact
-            end
-
+            entries = filter_tool_entries(Array(Legion::Settings::Extensions.tools), params)
+            tools = entries.map { |e| serialize_tool_entry(e) }
             json_response({ total: tools.size, tools: tools })
           end
         end
@@ -239,6 +212,27 @@ module Legion
             { name: name, state: entry[:state].to_s,
               registered_at: entry[:registered_at]&.iso8601,
               started_at: entry[:started_at]&.iso8601 }
+          end
+
+          def filter_tool_entries(entries, params)
+            entries = entries.select { |e| e[:extension].to_s == params[:extension] } if params[:extension]
+            entries = entries.select { |e| e[:runner].to_s == params[:runner] } if params[:runner]
+            entries = entries.select { |e| e[:deferred] == (params[:deferred] == 'true') } if params.key?(:deferred)
+            entries = entries.select { |e| Array(e[:trigger_words]).any? } if params[:triggered] == 'true'
+            entries
+          end
+
+          def serialize_tool_entry(entry)
+            {
+              name:          entry[:name],
+              description:   entry[:description],
+              extension:     entry[:extension],
+              runner:        entry[:runner],
+              deferred:      entry[:deferred],
+              trigger_words: entry[:trigger_words],
+              source:        entry[:source],
+              sticky:        entry[:sticky]
+            }.compact
           end
 
           private :register_loaded_summary_route, :register_tools_route, :register_available_route,
