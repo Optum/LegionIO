@@ -125,6 +125,7 @@ module Legion
           )
           return unless Legion::Tools::Registry.register(tool_class)
 
+          register_in_settings_extensions(tool_class, ext, runner_mod, is_deferred)
           record_tool_owner(ext, tool_class)
         end
 
@@ -214,6 +215,28 @@ module Legion
               error_response(e.message)
             end
           end
+        end
+
+        def register_in_settings_extensions(tool_class, ext, runner_mod, is_deferred)
+          return unless defined?(Legion::Settings::Extensions) &&
+                        Legion::Settings::Extensions.respond_to?(:register_tool)
+
+          ext_name = derive_extension_name(ext)
+          Legion::Settings::Extensions.register_tool(tool_class.tool_name, {
+                                                       description:   tool_class.respond_to?(:description) ? tool_class.description : nil,
+                                                       input_schema:  tool_class.respond_to?(:input_schema) ? tool_class.input_schema : {},
+                                                       tool_class:    tool_class,
+                                                       dispatch_type: :class_call,
+                                                       extension:     "lex-#{ext_name}",
+                                                       runner:        derive_runner_snake(runner_mod),
+                                                       source:        :tools_discovery,
+                                                       deferred:      is_deferred,
+                                                       trigger_words: tool_class.respond_to?(:trigger_words) ? tool_class.trigger_words : [],
+                                                       sticky:        tool_class.respond_to?(:sticky?) ? tool_class.sticky? : true,
+                                                       mcp_tier:      tool_class.respond_to?(:mcp_tier) ? tool_class.mcp_tier : nil
+                                                     })
+        rescue StandardError => e
+          handle_exception(e, level: :warn, handled: true, operation: :register_in_settings_extensions)
         end
 
         def record_tool_owner(ext, tool_class)

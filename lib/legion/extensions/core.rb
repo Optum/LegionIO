@@ -174,7 +174,8 @@ module Legion
         return unless runner_module.respond_to?(:definitions)
 
         runner_module.definitions.each_key do |method_name|
-          const_name = "#{camelize(runner_name)}#{camelize(method_name)}"
+          sanitized = method_name.to_s.delete('?!')
+          const_name = "#{camelize(runner_name)}#{camelize(sanitized)}"
           next if ctx[:messages_mod].const_defined?(const_name, false)
 
           rk_value = "#{ctx[:prefix]}.runners.#{runner_name}.#{method_name}"

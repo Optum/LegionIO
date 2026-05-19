@@ -6,6 +6,7 @@ module Legion
       module Extensions
         def self.registered(app)
           register_loaded_summary_route(app)
+          register_tools_route(app)
           register_available_route(app)
           register_extension_routes(app)
           register_runner_routes(app)
@@ -26,6 +27,41 @@ module Legion
             end
 
             json_response(items)
+          end
+        end
+
+        def self.register_tools_route(app)
+          app.get '/api/extensions/tools' do
+            entries = Array(Legion::Settings::Extensions.tools)
+
+            entries = entries.select { |e| e[:extension].to_s == params[:extension] } if params[:extension]
+            entries = entries.select { |e| e[:runner].to_s == params[:runner] } if params[:runner]
+            entries = entries.select { |e| e[:deferred] == (params[:deferred] == 'true') } if params.key?(:deferred)
+            entries = entries.select { |e| Array(e[:trigger_words]).any? } if params[:triggered] == 'true'
+
+            if params[:extension_filter]
+              mod_name = params[:extension_filter]
+              ext_mod = find_extension_module(mod_name.delete_prefix('lex-'))
+              if ext_mod
+                entries = entries.select { |e| e[:deferred] == false } if ext_mod.respond_to?(:mcp_tools_deferred?) && !ext_mod.mcp_tools_deferred?
+                entries = [] if ext_mod.respond_to?(:mcp_tools?) && !ext_mod.mcp_tools?
+              end
+            end
+
+            tools = entries.map do |e|
+              {
+                name:          e[:name],
+                description:   e[:description],
+                extension:     e[:extension],
+                runner:        e[:runner],
+                deferred:      e[:deferred],
+                trigger_words: e[:trigger_words],
+                source:        e[:source],
+                sticky:        e[:sticky]
+              }.compact
+            end
+
+            json_response({ total: tools.size, tools: tools })
           end
         end
 
@@ -205,8 +241,9 @@ module Legion
               started_at: entry[:started_at]&.iso8601 }
           end
 
-          private :register_loaded_summary_route, :register_available_route, :register_extension_routes,
-                  :register_runner_routes, :register_function_routes, :register_invoke_route
+          private :register_loaded_summary_route, :register_tools_route, :register_available_route,
+                  :register_extension_routes, :register_runner_routes, :register_function_routes,
+                  :register_invoke_route
         end
       end
     end
