@@ -198,7 +198,7 @@ module Legion
         end
 
         def build_chunk_payload(chunk, tags, opts)
-          {
+          payload = {
             content:      chunk[:content],
             content_type: opts[:content_type] || 'absorbed_chunk',
             content_hash: chunk[:content_hash],
@@ -211,6 +211,8 @@ module Legion
               token_count:  chunk[:token_count]
             }.merge(opts.fetch(:metadata, {}))
           }
+          payload[:access_scope] = opts[:access_scope] if opts.key?(:access_scope)
+          payload
         end
       end
     end
