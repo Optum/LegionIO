@@ -1061,7 +1061,7 @@ module Legion
         parts[(idx + 1)..].to_a.each_with_object([]) do |part, extension_parts|
           break extension_parts if %w[Actor Actors Runners Helpers Transport Data Hooks Skills].include?(part)
 
-          extension_parts << camel_to_snake(part).tr('_', '-')
+          extension_parts << camel_to_snake(part)
         end
       end
 

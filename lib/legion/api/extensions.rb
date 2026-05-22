@@ -6,6 +6,7 @@ module Legion
       module Extensions
         def self.registered(app)
           register_loaded_summary_route(app)
+          register_tools_route(app)
           register_available_route(app)
           register_extension_routes(app)
           register_runner_routes(app)
@@ -26,6 +27,14 @@ module Legion
             end
 
             json_response(items)
+          end
+        end
+
+        def self.register_tools_route(app)
+          app.get '/api/extensions/tools' do
+            entries = filter_tool_entries(Array(Legion::Settings::Extensions.tools), params)
+            tools = entries.map { |e| serialize_tool_entry(e) }
+            json_response({ total: tools.size, tools: tools })
           end
         end
 
@@ -205,8 +214,30 @@ module Legion
               started_at: entry[:started_at]&.iso8601 }
           end
 
-          private :register_loaded_summary_route, :register_available_route, :register_extension_routes,
-                  :register_runner_routes, :register_function_routes, :register_invoke_route
+          def filter_tool_entries(entries, params)
+            entries = entries.select { |e| e[:extension].to_s == params[:extension] } if params[:extension]
+            entries = entries.select { |e| e[:runner].to_s == params[:runner] } if params[:runner]
+            entries = entries.select { |e| e[:deferred] == (params[:deferred] == 'true') } if params.key?(:deferred)
+            entries = entries.select { |e| Array(e[:trigger_words]).any? } if params[:triggered] == 'true'
+            entries
+          end
+
+          def serialize_tool_entry(entry)
+            {
+              name:          entry[:name],
+              description:   entry[:description],
+              extension:     entry[:extension],
+              runner:        entry[:runner],
+              deferred:      entry[:deferred],
+              trigger_words: entry[:trigger_words],
+              source:        entry[:source],
+              sticky:        entry[:sticky]
+            }.compact
+          end
+
+          private :register_loaded_summary_route, :register_tools_route, :register_available_route,
+                  :register_extension_routes, :register_runner_routes, :register_function_routes,
+                  :register_invoke_route
         end
       end
     end

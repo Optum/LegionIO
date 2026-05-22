@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.9.34] - 2026-05-18
+
+### Added
+- API: `GET /api/extensions/tools` endpoint with extension, runner, deferred, and triggered filters
+- Tools::Discovery: writes to `Legion::Settings::Extensions.register_tool` (bridges discovery to LLM pipeline)
+
+### Fixed
+- Extensions: `extension_parts_from_const` no longer converts underscores to dashes (fixes lex-microsoft_teams filtering)
+- Core: `generate_runner_messages` strips `?` and `!` from method names before creating constants
+
 ## [1.9.33] - 2026-05-15
 
 ### Added
