@@ -212,6 +212,57 @@ RSpec.describe Legion::Extensions do
     end
   end
 
+  describe '.require_identity_extensions' do
+    let(:lex_identity) do
+      {
+        gem_name:      'lex-identity-system',
+        category:      :identity,
+        tier:          0,
+        segments:      %w[identity system],
+        const_path:    'Legion::Extensions::Identity::System',
+        require_path:  'legion/extensions/identity/system',
+        settings_path: %i[identity system]
+      }
+    end
+    let(:lex_http) do
+      {
+        gem_name:      'lex-http',
+        category:      :core,
+        tier:          1,
+        segments:      ['http'],
+        const_path:    'Legion::Extensions::Http',
+        require_path:  'legion/extensions/http',
+        settings_path: [:http]
+      }
+    end
+
+    before do
+      allow(described_class).to receive(:find_extensions).and_return([lex_identity, lex_http])
+      allow(described_class).to receive(:extension_settings_for_entry).and_return({})
+      allow(described_class).to receive(:latest_installed_version)
+      allow(described_class).to receive(:register_extension_handle)
+      allow(described_class).to receive(:ensure_namespace)
+      allow(described_class).to receive(:gem_load)
+      allow(Legion::Extensions::Catalog).to receive(:register)
+    end
+
+    it 'requires identity extension files without loading non-identity extensions' do
+      described_class.require_identity_extensions
+
+      expect(described_class).to have_received(:gem_load).with(lex_identity)
+      expect(described_class).not_to have_received(:gem_load).with(lex_http)
+    end
+
+    it 'does not require disabled identity extensions' do
+      allow(described_class).to receive(:extension_settings_for_entry).with(lex_identity).and_return(enabled: false)
+      allow(described_class).to receive(:extension_settings_for_entry).with(lex_http).and_return({})
+
+      described_class.require_identity_extensions
+
+      expect(described_class).not_to have_received(:gem_load)
+    end
+  end
+
   describe '.default_category_registry' do
     subject(:registry) { described_class.send(:default_category_registry) }
 

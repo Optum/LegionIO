@@ -249,6 +249,43 @@ RSpec.describe Legion::Service do
   # §8.1 Boot — setup_identity credential swap
   # ---------------------------------------------------------------------------
 
+  describe '#setup_identity_before_llm' do
+    before do
+      allow(service).to receive(:require_relative)
+      allow(service).to receive(:setup_identity)
+      allow(service).to receive(:handle_exception)
+
+      data = Module.new do
+        def self.respond_to?(method, *) = method == :connected? ? true : super
+        def self.connected? = false
+      end
+      extensions = Module.new do
+        def self.respond_to?(method, *) = method == :require_identity_extensions ? true : super
+        def self.require_identity_extensions = nil
+      end
+
+      stub_const('Legion::Data', data)
+      stub_const('Legion::Extensions', extensions)
+      allow(Legion::Extensions).to receive(:require_identity_extensions)
+    end
+
+    it 'requires identity extensions and resolves identity before LLM setup can run' do
+      expect(service).to receive(:require_relative).with('identity').ordered
+      expect(Legion::Extensions).to receive(:require_identity_extensions).ordered
+      expect(service).to receive(:setup_identity).ordered
+
+      service.send(:setup_identity_before_llm, extensions: true, transport: true)
+    end
+
+    it 'does not require identity extensions when extension loading is disabled' do
+      expect(Legion::Extensions).not_to receive(:require_identity_extensions)
+
+      service.send(:setup_identity_before_llm, extensions: false, transport: true)
+
+      expect(service).to have_received(:setup_identity)
+    end
+  end
+
   describe '#setup_identity — credential swap' do
     before do
       # Stub identity/process requires
@@ -263,6 +300,12 @@ RSpec.describe Legion::Service do
         def self.bind_fallback! = nil
       end
       stub_const('Legion::Identity::Process', identity_process)
+
+      identity_resolver = Module.new do
+        def self.resolve! = nil
+        def self.resolved? = true
+      end
+      stub_const('Legion::Identity::Resolver', identity_resolver)
 
       settings = Module.new do
         def self.respond_to?(method, *) = method == :resolve_secrets! ? true : super

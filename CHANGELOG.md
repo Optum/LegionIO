@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.9.36] - 2026-05-22
+
+### Fixed
+- Identity: preload identity provider gems and resolve process identity before LLM setup so `llm.registry` availability events include Legion identity headers.
+- Identity: use the persisted `identity.json` value as a cached resolver fallback ahead of unverified system identity when fresh auth providers are unavailable.
+
 ## [1.9.35] - 2026-05-22
 
 ### Added

@@ -112,6 +112,8 @@ module Legion
       end
       setup_cluster if data
 
+      setup_identity_before_llm(extensions: extensions, transport: transport)
+
       if llm
         begin
           setup_llm
@@ -161,15 +163,14 @@ module Legion
       setup_safety_metrics
       setup_supervision if supervision
 
-      require_relative 'identity' if File.exist?(File.expand_path('identity.rb', __dir__))
-
       if extensions
         load_extensions
         Legion::Readiness.mark_ready(:extensions)
         setup_generated_functions
       end
 
-      # Identity resolution — after extensions so lex-identity-* providers are loaded
+      # Re-run identity after full extension load so any providers with autobuild-time
+      # registration can upgrade the pre-LLM identity.
       db_available = defined?(Legion::Data) && Legion::Data.respond_to?(:connected?) && Legion::Data.connected?
       setup_identity if transport || db_available
       register_credential_providers if extensions && (transport || db_available)
@@ -923,6 +924,8 @@ module Legion
         Legion::Readiness.mark_skipped(:rbac)
       end
 
+      setup_identity_before_llm(extensions: true, transport: true)
+
       if defined?(Legion::LLM)
         setup_llm
       else
@@ -950,7 +953,6 @@ module Legion
       # Phase 5: re-run identity resolution after extensions are loaded so that
       # any identity providers registered by lex-identity-* extensions are
       # available to the resolver (mirrors the boot-time ordering).
-      Legion::Identity::Resolver.reset! if defined?(Legion::Identity::Resolver)
       setup_identity
 
       db_available = defined?(Legion::Data) && Legion::Data.respond_to?(:connected?) && Legion::Data.connected?
@@ -979,6 +981,18 @@ module Legion
     def load_extensions
       require 'legion/runner'
       Legion::Extensions.hook_extensions
+    end
+
+    def setup_identity_before_llm(extensions:, transport:)
+      require_relative 'identity' if File.exist?(File.expand_path('identity.rb', __dir__))
+      Legion::Extensions.require_identity_extensions if extensions &&
+                                                        defined?(Legion::Extensions) &&
+                                                        Legion::Extensions.respond_to?(:require_identity_extensions)
+
+      db_available = defined?(Legion::Data) && Legion::Data.respond_to?(:connected?) && Legion::Data.connected?
+      setup_identity if transport || db_available
+    rescue StandardError => e
+      handle_exception(e, level: :warn, operation: 'service.setup_identity_before_llm')
     end
 
     def register_core_tools

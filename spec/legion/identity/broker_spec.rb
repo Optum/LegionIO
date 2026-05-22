@@ -83,6 +83,18 @@ RSpec.describe Legion::Identity::Broker do
     end
   end
 
+  describe '.credential_for' do
+    it 'returns the raw token for a registered provider' do
+      described_class.register_provider(:anthropic, provider: double('p'), lease: make_static_lease(token: 'sk-ant'))
+
+      expect(described_class.credential_for(:anthropic)).to eq('sk-ant')
+    end
+
+    it 'returns nil when the provider has no valid credential' do
+      expect(described_class.credential_for(:anthropic)).to be_nil
+    end
+  end
+
   # ---------------------------------------------------------------------------
   # credentials_for
   # ---------------------------------------------------------------------------
