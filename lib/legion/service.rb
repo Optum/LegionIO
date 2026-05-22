@@ -589,7 +589,7 @@ module Legion
       end
     end
 
-    def setup_logging_transport # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+    def setup_logging_transport # rubocop:disable Metrics/CyclomaticComplexity,Metrics/MethodLength,Metrics/PerceivedComplexity
       return unless defined?(Legion::Transport::Connection)
       return unless Legion::Transport::Connection.session_open?
 
@@ -612,11 +612,16 @@ module Legion
       exchange = log_channel.topic('legion.logging', durable: true)
 
       if forward_logs
-        Legion::Logging.log_writer = lambda { |event, routing_key:|
+        Legion::Logging.log_writer = lambda { |event, routing_key:, headers: {}, properties: {}|
           begin
             next unless log_channel&.open?
 
-            exchange.publish(Legion::JSON.dump(event), routing_key: routing_key)
+            exchange.publish(
+              Legion::JSON.dump(event),
+              routing_key: routing_key,
+              headers:     headers,
+              **properties
+            )
           rescue StandardError
             nil
           end

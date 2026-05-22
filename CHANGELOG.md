@@ -6,6 +6,7 @@
 
 ### Added
 - CLI: `legionio service start|stop|restart|status` subcommand for direct launchd control
+- Logging transport forwarding now publishes structured log headers/properties, including identity and Legion version headers supplied by `legion-logging`.
 
 ### Fixed
 - CLI: `legionio bootstrap --start` now calls `launchctl kickstart` after brew services start to force immediate spawn on macOS 26+ (Tahoe defers `RunAtLoad` for mid-session bootstraps)
