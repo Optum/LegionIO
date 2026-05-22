@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.9.35] - 2026-05-22
+
+### Added
+- CLI: `legionio service start|stop|restart|status` subcommand for direct launchd control
+
+### Fixed
+- CLI: `legionio bootstrap --start` now calls `launchctl kickstart` after brew services start to force immediate spawn on macOS 26+ (Tahoe defers `RunAtLoad` for mid-session bootstraps)
+
 ## [1.9.34] - 2026-05-18
 
 ### Added
