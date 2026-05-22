@@ -3,6 +3,7 @@
 require 'English'
 require 'json'
 require 'fileutils'
+require 'open3'
 require 'rbconfig'
 require 'thor'
 require 'legion/cli/output'
@@ -393,13 +394,23 @@ module Legion
           output, success = shell_capture("brew services start #{service}")
           if success
             out.success("#{service} started") unless options[:json]
-            true
           else
             out.warn("#{service} failed to start: #{output.strip.lines.last&.strip}") unless options[:json]
-            false
           end
+          kickstart_launchd_service("homebrew.mxcl.#{service}", out)
         rescue StandardError => e
           out.warn("brew services start #{service} raised: #{e.message}") unless options[:json]
+          false
+        end
+
+        def kickstart_launchd_service(label, out)
+          return true unless RbConfig::CONFIG['host_os'] =~ /darwin/
+
+          uid = ::Process.uid
+          _, status = Open3.capture2e('launchctl', 'kickstart', "gui/#{uid}/#{label}")
+          return true if status.success?
+
+          out.warn("launchctl kickstart #{label} failed (service may already be running)") unless options[:json]
           false
         end
 
