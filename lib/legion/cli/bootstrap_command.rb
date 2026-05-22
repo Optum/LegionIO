@@ -392,11 +392,12 @@ module Legion
 
         def run_brew_service(service, out)
           output, success = shell_capture("brew services start #{service}")
-          if success
-            out.success("#{service} started") unless options[:json]
-          else
+          unless success
             out.warn("#{service} failed to start: #{output.strip.lines.last&.strip}") unless options[:json]
+            return false
           end
+
+          out.success("#{service} started") unless options[:json]
           kickstart_launchd_service("homebrew.mxcl.#{service}", out)
         rescue StandardError => e
           out.warn("brew services start #{service} raised: #{e.message}") unless options[:json]
