@@ -7,6 +7,7 @@
 ### Fixed
 - Identity: preload identity provider gems and resolve process identity before LLM setup so `llm.registry` availability events include Legion identity headers.
 - Identity: use the persisted `identity.json` value as a cached resolver fallback ahead of unverified system identity when fresh auth providers are unavailable.
+- Bundler: load sibling Legion and LLM provider path dependencies outside the test group when those local checkouts exist, so local service boots can use the active workspace gems.
 
 ## [1.9.35] - 2026-05-22
 
