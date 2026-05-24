@@ -166,6 +166,8 @@ RSpec.describe Legion::Identity::Resolver do
   describe '.resolve!' do
     before do
       Legion::Identity::Process.reset!
+      allow(File).to receive(:file?).and_call_original
+      allow(File).to receive(:file?).with(File.expand_path('~/.legionio/settings/identity.json')).and_return(false)
     end
 
     after do
@@ -282,6 +284,27 @@ RSpec.describe Legion::Identity::Resolver do
         described_class.register(system_provider)
         described_class.resolve!
         expect(described_class.composite[:trust]).to eq(:unverified)
+      end
+    end
+
+    context 'with cached identity' do
+      before do
+        allow(described_class).to receive(:persist_identity_json)
+        allow(File).to receive(:read).and_call_original
+      end
+
+      it 'uses identity.json before unverified fallback providers' do
+        allow(File).to receive(:file?).with(File.expand_path('~/.legionio/settings/identity.json')).and_return(true)
+        allow(File).to receive(:read).with(File.expand_path('~/.legionio/settings/identity.json'))
+                                     .and_return('{"canonical_name":"cached-user","kind":"human"}')
+
+        described_class.register(system_provider)
+        described_class.resolve!
+
+        expect(described_class.composite[:canonical_name]).to eq('cached-user')
+        expect(described_class.composite[:trust]).to eq(:cached)
+        expect(described_class.composite[:providers][:identity_cache][:status]).to eq(:resolved)
+        expect(Legion::Identity::Process.canonical_name).to eq('cached-user')
       end
     end
 

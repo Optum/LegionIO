@@ -83,8 +83,19 @@ RSpec.describe 'Service#setup_logging_transport' do
     it 'publishes via exchange when log_writer is called' do
       allow(mock_exchange).to receive(:publish)
       service.send(:setup_logging_transport)
-      Legion::Logging.log_writer.call({ message: 'test' }, routing_key: 'legion.logging.log.warn.core.unknown')
-      expect(mock_exchange).to have_received(:publish).once
+      Legion::Logging.log_writer.call(
+        { message: 'test' },
+        routing_key: 'legion.logging.log.warn.core.unknown',
+        headers:     { 'x-legion-identity-id' => 'ident-123' },
+        properties:  { content_type: 'application/json', type: 'log_event' }
+      )
+      expect(mock_exchange).to have_received(:publish).with(
+        kind_of(String),
+        routing_key:  'legion.logging.log.warn.core.unknown',
+        headers:      { 'x-legion-identity-id' => 'ident-123' },
+        content_type: 'application/json',
+        type:         'log_event'
+      )
     end
 
     it 'publishes via exchange when exception_writer is called' do

@@ -34,6 +34,12 @@ module Legion
           winning_provider, winning_result, provider_results = resolve_auth(auth_providers, timeout: timeout)
 
           if winning_provider.nil?
+            log.debug('resolve!: no auth winner, trying cached identity')
+            winning_provider, winning_result, cached_results = resolve_cached_identity
+            provider_results.merge!(cached_results) if cached_results
+          end
+
+          if winning_provider.nil?
             log.debug('resolve!: no auth winner, trying fallback providers')
             winning_provider, winning_result, fallback_results = resolve_auth(fallback_providers, timeout: timeout)
             provider_results.merge!(fallback_results) if fallback_results
@@ -226,6 +232,67 @@ module Legion
             log.debug("resolve_auth: winner=#{winner_name}")
             winner_info = provider_results[winner_name]
             [winner_info[:provider], winner_info[:result], provider_results]
+          end
+        end
+
+        def resolve_cached_identity
+          cached = read_cached_identity
+          return [nil, nil, {}] unless cached
+
+          provider = cached_identity_provider
+          result = {
+            canonical_name: cached[:canonical_name],
+            kind:           cached[:kind] || :human,
+            source:         :identity_json,
+            persistent:     true
+          }
+
+          [
+            provider,
+            result,
+            {
+              provider.provider_name => {
+                status:      :resolved,
+                trust:       provider.trust_level,
+                resolved_at: Time.now,
+                provider:    provider,
+                result:      result
+              }
+            }
+          ]
+        end
+
+        def read_cached_identity
+          path = File.expand_path('~/.legionio/settings/identity.json')
+          return nil unless File.file?(path)
+
+          data = if defined?(Legion::JSON)
+                   Legion::JSON.load(File.read(path))
+                 else
+                   require 'json'
+                   ::JSON.parse(File.read(path), symbolize_names: true)
+                 end
+          canonical = data[:canonical_name] || data['canonical_name']
+          return nil if canonical.to_s.strip.empty?
+
+          {
+            canonical_name: canonical.to_s,
+            kind:           (data[:kind] || data['kind'] || :human).to_sym
+          }
+        rescue StandardError => e
+          log.warn("identity.json read failed: #{e.message}")
+          nil
+        end
+
+        def cached_identity_provider
+          @cached_identity_provider ||= Module.new do
+            module_function
+
+            def provider_name = :identity_cache
+            def provider_type = :auth
+            def priority = -100
+            def trust_weight = 150
+            def trust_level = :cached
           end
         end
 

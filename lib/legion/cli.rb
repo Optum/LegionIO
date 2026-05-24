@@ -69,6 +69,7 @@ module Legion
     autoload :Debug,        'legion/cli/debug_command'
     autoload :CodegenCommand, 'legion/cli/codegen_command'
     autoload :Bootstrap,      'legion/cli/bootstrap_command'
+    autoload :ServiceCommand, 'legion/cli/service_command'
     autoload :Broker,         'legion/cli/broker_command'
     autoload :AdminCommand,   'legion/cli/admin_command'
     autoload :Workflow,       'legion/cli/workflow_command'
@@ -257,6 +258,9 @@ module Legion
 
       desc 'setup SUBCOMMAND', 'Install feature packs and configure IDE integrations'
       subcommand 'setup', Legion::CLI::Setup
+
+      desc 'service SUBCOMMAND', 'Manage the Legion launchd background service'
+      subcommand 'service', Legion::CLI::ServiceCommand
 
       desc 'bootstrap SOURCE', 'One-command setup: fetch config, scaffold, and install packs'
       subcommand 'bootstrap', Legion::CLI::Bootstrap

@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [1.9.36] - 2026-05-22
+
+### Fixed
+- Identity: preload identity provider gems and resolve process identity before LLM setup so `llm.registry` availability events include Legion identity headers.
+- Identity: use the persisted `identity.json` value as a cached resolver fallback ahead of unverified system identity when fresh auth providers are unavailable.
+- Bundler: load sibling Legion and LLM provider path dependencies outside the test group when those local checkouts exist, so local service boots can use the active workspace gems.
+
+## [1.9.35] - 2026-05-22
+
+### Added
+- CLI: `legionio service start|stop|restart|status` subcommand for direct launchd control
+- Logging transport forwarding now publishes structured log headers/properties, including identity and Legion version headers supplied by `legion-logging`.
+
+### Fixed
+- CLI: `legionio bootstrap --start` now calls `launchctl kickstart` after brew services start to force immediate spawn on macOS 26+ (Tahoe defers `RunAtLoad` for mid-session bootstraps)
+
 ## [1.9.34] - 2026-05-18
 
 ### Added

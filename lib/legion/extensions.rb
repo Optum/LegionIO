@@ -132,6 +132,24 @@ module Legion
         Legion::Logging.info "[Extensions] flushed #{count} pending registrations" if defined?(Legion::Logging)
       end
 
+      def require_identity_extensions
+        find_extensions.select { |entry| entry[:category] == :identity }.each do |entry|
+          gem_name = entry[:gem_name]
+          ext_settings = extension_settings_for_entry(entry)
+
+          if ext_settings.is_a?(Hash) && ext_settings.key?(:enabled) && !ext_settings[:enabled]
+            Legion::Logging.info "Skipping #{gem_name} identity preload because it's disabled"
+            next
+          end
+
+          Catalog.register(gem_name)
+          register_extension_handle(gem_name, state:                    :registered,
+                                              latest_installed_version: latest_installed_version(gem_name))
+          ensure_namespace(entry[:const_path]) if entry[:segments].length > 1
+          gem_load(entry)
+        end
+      end
+
       def pause_actors
         @running_instances&.each do |inst|
           timer = inst.instance_variable_get(:@timer)

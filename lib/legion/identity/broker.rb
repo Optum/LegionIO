@@ -21,6 +21,10 @@ module Legion
           token
         end
 
+        def credential_for(provider_name, qualifier: nil, for_context: nil, purpose: nil, context: nil)
+          token_for(provider_name, qualifier: qualifier, for_context: for_context, purpose: purpose, context: context)
+        end
+
         def lease_for(provider_name, qualifier: nil)
           name = provider_name.to_sym
           resolved = qualifier || default_qualifier_for(name)
