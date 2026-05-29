@@ -7,7 +7,10 @@ module Legion
     module EmbeddingSimilarity
       class << self
         def check(input, safe_embeddings:, threshold: 0.3)
-          return { safe: true, reason: 'no embeddings service' } unless defined?(Legion::LLM) && Legion::LLM.respond_to?(:embed) && Legion::LLM.respond_to?(:started?) && Legion::LLM.started?
+          unless defined?(Legion::LLM) && Legion::LLM.respond_to?(:embed) && Legion::LLM.respond_to?(:started?) && Legion::LLM.started?
+            return { safe:   true,
+                     reason: 'no embeddings service' }
+          end
 
           input_vec = Legion::LLM.embed(input)
           return { safe: true, reason: 'embedding failed' } unless input_vec
