@@ -4,18 +4,18 @@ require 'spec_helper'
 require 'legion/llm'
 
 RSpec.describe 'LegionIO LLM namespace settings override' do
-  it 'sets use_namespaces to true in the merged LLM settings' do
-    base = Legion::LLM::Settings.default
-    merged = base.merge({ api: base[:api].merge({ use_namespaces: true }) })
+  it 'enables use_namespaces via loader.settings override' do
+    Legion::Settings.merge_settings('llm', Legion::LLM::Settings.default)
+    Legion::Settings.loader.settings[:llm][:api][:use_namespaces] = true
 
-    expect(merged[:api][:use_namespaces]).to eq(true)
+    expect(Legion::Settings[:llm][:api][:use_namespaces]).to eq(true)
   end
 
-  it 'does not disturb other api defaults' do
-    base = Legion::LLM::Settings.default
-    merged = base.merge({ api: base[:api].merge({ use_namespaces: true }) })
+  it 'preserves other api defaults after override' do
+    Legion::Settings.merge_settings('llm', Legion::LLM::Settings.default)
+    Legion::Settings.loader.settings[:llm][:api][:use_namespaces] = true
 
-    expect(merged[:api][:auth][:enabled]).to eq(false)
-    expect(merged[:api][:auth][:api_keys]).to eq([])
+    expect(Legion::Settings[:llm][:api][:auth][:enabled]).to eq(false)
+    expect(Legion::Settings[:llm][:api][:auth][:api_keys]).to eq([])
   end
 end
