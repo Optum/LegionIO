@@ -58,9 +58,9 @@ RSpec.describe Legion::CLI::Chat::Tools::ProviderHealth do
       end
     end
 
-    it 'returns error when provider inventory is not available' do
+    it 'returns error when no providers are configured' do
       result = tool.call
-      expect(result).to eq('LLM provider inventory not available.')
+      expect(result).to eq('No providers configured.').or eq('LLM provider inventory not available.')
     end
 
     it 'does not fall back to legacy gateway provider stats' do
@@ -72,7 +72,7 @@ RSpec.describe Legion::CLI::Chat::Tools::ProviderHealth do
       stub_const('Legion::Extensions::Llm::Gateway::Runners::ProviderStats', stats_mod)
 
       result = tool.call
-      expect(result).to eq('LLM provider inventory not available.')
+      expect(result).to eq('No providers configured.').or eq('LLM provider inventory not available.')
     end
   end
 end

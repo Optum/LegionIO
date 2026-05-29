@@ -7,7 +7,7 @@ module Legion
     module EmbeddingSimilarity
       class << self
         def check(input, safe_embeddings:, threshold: 0.3)
-          return { safe: true, reason: 'no embeddings service' } unless defined?(Legion::LLM) && Legion::LLM.respond_to?(:embed)
+          return { safe: true, reason: 'no embeddings service' } unless defined?(Legion::LLM) && Legion::LLM.respond_to?(:embed) && Legion::LLM.respond_to?(:started?) && Legion::LLM.started?
 
           input_vec = Legion::LLM.embed(input)
           return { safe: true, reason: 'embedding failed' } unless input_vec
@@ -18,6 +18,8 @@ module Legion
             Legion::Logging.warn "[Guardrails] EmbeddingSimilarity rejected input: distance=#{min_dist.round(4)} threshold=#{threshold}"
           end
           { safe: safe, distance: min_dist.round(4), threshold: threshold }
+        rescue StandardError
+          { safe: true, reason: 'embedding failed' }
         end
 
         def cosine_distance(vec_a, vec_b)

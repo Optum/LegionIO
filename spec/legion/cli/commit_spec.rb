@@ -5,21 +5,6 @@ require 'open3'
 
 CommitResponse = Struct.new(:content)
 
-# Stub LLM for commit message generation
-module Legion
-  module LLM
-    def self.chat(**_opts)
-      FakeChat.new
-    end
-
-    class FakeChat
-      def ask(_prompt)
-        CommitResponse.new(content: "add new feature\n\n- update config\n- fix tests")
-      end
-    end
-  end
-end
-
 require 'legion/cli/commit_command'
 
 RSpec.describe Legion::CLI::Commit do
@@ -88,6 +73,10 @@ RSpec.describe Legion::CLI::Commit do
 
   describe 'generate_message' do
     it 'returns LLM-generated commit message' do
+      fake_response = CommitResponse.new(content: "add new feature\n\n- update config\n- fix tests")
+      fake_chat = double('chat', ask: fake_response)
+      allow(Legion::LLM).to receive(:chat).and_return(fake_chat)
+
       instance = described_class.new([], { model: nil, provider: nil })
       message = instance.generate_message('diff', 'stat', 'log')
       expect(message).to include('add new feature')

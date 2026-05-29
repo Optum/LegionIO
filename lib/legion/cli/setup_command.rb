@@ -501,7 +501,7 @@ module Legion
 
         def install_gem(name, gem_bin, out)
           puts "  Installing #{name}..." unless options[:json]
-          output = `#{gem_bin} install #{name} --no-document 2>&1`
+          output = `#{gem_bin} install #{name} --no-document --clear-sources --source https://rubygems.org/ 2>&1`
           if $CHILD_STATUS.success?
             out.success("  #{name} installed") unless options[:json]
             { name: name, status: 'installed' }

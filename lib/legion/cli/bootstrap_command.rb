@@ -293,7 +293,7 @@ module Legion
 
         def install_single_gem(name, gem_bin, out)
           puts "  Installing #{name}..." unless options[:json]
-          output, success = shell_capture("#{gem_bin} install #{name} --no-document")
+          output, success = shell_capture("#{gem_bin} install #{name} --no-document --clear-sources --source https://rubygems.org/")
           if success
             out.success("  #{name} installed") unless options[:json]
             { name: name, status: 'installed' }
