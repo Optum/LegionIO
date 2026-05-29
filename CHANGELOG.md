@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+- LLM: namespace API enabled by default — LegionIO now routes all `/v1/` and `/api/llm/` traffic
+  through `Namespaces::Registration` (Sinatra::Namespace, Phases 0-4 complete in legion-llm ≥ 0.8.50)
+- CLI: `legion setup proxy-mode` (alias: `proxy`) writes `~/.codex/config.toml` and
+  `~/.claude/settings.json` env block so Codex CLI and Claude Code connect to LegionIO at
+  `http://localhost:4567` out of the box. Supports `--port`, `--host`, `--force`, `--json`.
+
 ## [1.9.36] - 2026-05-22
 
 ### Fixed
