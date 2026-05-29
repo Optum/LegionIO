@@ -157,6 +157,34 @@ module Legion
         end
       end
 
+      desc 'proxy-mode', 'Configure Codex CLI and Claude Code to use LegionIO as a local API proxy'
+      option :port, type: :numeric, default: 4567, desc: 'LegionIO API port'
+      option :host, type: :string, default: 'localhost', desc: 'LegionIO API host'
+      def proxy_mode
+        out = formatter
+        base_url = "http://#{options[:host]}:#{options[:port]}/v1"
+        written = []
+        skipped = []
+
+        write_codex_config(base_url, written, skipped)
+        write_claude_code_proxy_config(base_url, written, skipped)
+
+        if options[:json]
+          out.json(written: written, skipped: skipped, base_url: base_url)
+        else
+          out.spacer
+          out.success("LegionIO proxy mode configured (#{written.size} written, #{skipped.size} skipped)")
+          written.each { |f| puts "  Written:  #{f}" }
+          skipped.each { |f| puts "  Skipped (already exists, use --force to overwrite): #{f}" }
+          out.spacer
+          puts "  LegionIO API: #{base_url.sub('/v1', '')}"
+          puts '  Codex CLI:    legion llm proxy (uses ~/.codex/config.toml)'
+          puts '  Claude Code:  set ANTHROPIC_BASE_URL in your shell or ~/.claude/settings.json'
+          out.spacer
+        end
+      end
+      map 'proxy' => :proxy_mode
+
       desc 'agentic', 'Install full cognitive stack (GAIA + LLM + Apollo + all agentic extensions)'
       option :dry_run, type: :boolean, default: false, desc: 'Show what would be installed without installing'
       def agentic
@@ -711,6 +739,74 @@ module Legion
             false
           end
           { name: 'VS Code', path: path, configured: configured }
+        end
+
+        def write_codex_config(base_url, written, skipped)
+          codex_dir  = File.expand_path('~/.codex')
+          codex_path = File.join(codex_dir, 'config.toml')
+
+          if File.exist?(codex_path) && !options[:force]
+            skipped << codex_path
+            return
+          end
+
+          FileUtils.mkdir_p(codex_dir)
+
+          content = <<~TOML
+            model = "legionio"
+            model_provider = "legion"
+
+            [model_providers.legion]
+            name = "LegionIO"
+            env_key = "LEGION_API_KEY"
+            base_url = "#{base_url}"
+            wire_api = "responses"
+          TOML
+
+          File.write(codex_path, content)
+          written << codex_path
+        rescue StandardError => e
+          raise Thor::Error, "Failed to write #{codex_path}: #{e.message}"
+        end
+
+        def write_claude_code_proxy_config(base_url, written, skipped)
+          claude_dir  = File.expand_path('~/.claude')
+          claude_path = File.join(claude_dir, 'settings.json')
+
+          existing = if File.exist?(claude_path)
+                       begin
+                         ::JSON.parse(File.read(claude_path))
+                       rescue ::JSON::ParserError
+                         {}
+                       end
+                     else
+                       {}
+                     end
+
+          proxy_env = {
+            'ANTHROPIC_BASE_URL'             => base_url.sub(%r{/v1$}, ''),
+            'ANTHROPIC_API_KEY'              => 'legion',
+            'ANTHROPIC_AUTH_TOKEN'           => 'legion',
+            'ANTHROPIC_DEFAULT_OPUS_MODEL'   => 'legionio',
+            'ANTHROPIC_DEFAULT_SONNET_MODEL' => 'legionio',
+            'ANTHROPIC_DEFAULT_HAIKU_MODEL'  => 'legionio'
+          }
+
+          current_env = existing['env'] || {}
+
+          already_set = proxy_env.all? { |k, v| current_env[k] == v }
+          if already_set && !options[:force]
+            skipped << claude_path
+            return
+          end
+
+          merged = existing.merge('env' => current_env.merge(proxy_env))
+
+          FileUtils.mkdir_p(claude_dir)
+          File.write(claude_path, ::JSON.pretty_generate(merged))
+          written << claude_path
+        rescue StandardError => e
+          raise Thor::Error, "Failed to write #{claude_path}: #{e.message}"
         end
       end
     end
