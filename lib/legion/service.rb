@@ -452,6 +452,7 @@ module Legion
       log.info 'Setting up Legion::LLM'
       require 'legion/llm'
       Legion::Settings.merge_settings('llm', Legion::LLM::Settings.default)
+      Legion::Settings.loader.settings[:llm][:api][:use_namespaces] = true
       preload_llm_providers
       Legion::LLM.start
       log.info 'Legion::LLM started'

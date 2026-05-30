@@ -28,6 +28,7 @@ RSpec.describe Legion::API do
 
     it 'falls back to core routes when the library route module is unavailable' do
       allow(api_class).to receive(:register)
+      allow(api_class).to receive(:constant_from_path).with('Legion::LLM::Routes').and_return(nil)
 
       api_class.mount_library_routes('llm', Legion::API::Routes::Llm, 'Legion::LLM::Routes')
 

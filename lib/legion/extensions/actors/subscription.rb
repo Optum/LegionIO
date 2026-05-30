@@ -65,8 +65,10 @@ module Legion
         end
 
         def prepare # rubocop:disable Metrics/AbcSize
+          @dedicated_channel = create_dedicated_channel
           @queue = queue.new
-          @queue.channel.prefetch(prefetch) if defined? prefetch
+          reassign_queue_channel(@queue, @dedicated_channel)
+          @dedicated_channel.prefetch(prefetch) if defined? prefetch
           consumer_tag = "#{Legion::Settings[:client][:name]}_#{lex_name}_#{runner_name}_#{SecureRandom.uuid}"
           @consumer = Bunny::Consumer.new(@queue.channel, @queue, consumer_tag, false, false)
           @consumer.on_delivery do |delivery_info, metadata, payload|
@@ -296,6 +298,21 @@ module Legion
             log.warn "[Subscription] dead-lettering message after #{retry_count} retries for #{lex_name}"
             @queue.reject(delivery_info.delivery_tag, requeue: false)
           end
+        end
+
+        def create_dedicated_channel
+          s = Legion::Transport::Connection.session
+          raise IOError, 'transport session unavailable' unless s&.open?
+
+          settings = Legion::Transport::Connection.settings
+          s.create_channel(nil, settings[:channel][:default_worker_pool_size], false, 10)
+        end
+
+        def reassign_queue_channel(queue_instance, new_channel)
+          old_channel = queue_instance.channel
+          old_channel.deregister_queue(queue_instance) if old_channel.respond_to?(:deregister_queue)
+          queue_instance.instance_variable_set(:@channel, new_channel)
+          new_channel.register_queue(queue_instance) if new_channel.respond_to?(:register_queue)
         end
 
         def republish_with_retry_count(_delivery_info, metadata, payload, new_count)

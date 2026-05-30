@@ -400,4 +400,100 @@ RSpec.describe Legion::CLI::Setup do
       end
     end
   end
+
+  describe 'proxy-mode' do
+    let(:codex_dir) { File.join(tmpdir, '.codex') }
+    let(:codex_path) { File.join(codex_dir, 'config.toml') }
+    let(:claude_dir) { File.join(tmpdir, '.claude') }
+    let(:claude_path) { File.join(claude_dir, 'settings.json') }
+
+    before do
+      allow(File).to receive(:expand_path).with('~/.codex').and_return(codex_dir)
+      allow(File).to receive(:expand_path).with('~/.codex/config.toml').and_return(codex_path)
+      allow(File).to receive(:expand_path).with('~/.claude').and_return(claude_dir)
+      allow(File).to receive(:expand_path).with('~/.claude/settings.json').and_return(claude_path)
+    end
+
+    it 'creates ~/.codex/config.toml with legion proxy config' do
+      capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+      expect(File.exist?(codex_path)).to be true
+
+      content = File.read(codex_path)
+      expect(content).to include('model = "legionio"')
+      expect(content).to include('model_provider = "legion"')
+      expect(content).to include('base_url = "http://localhost:4567/v1"')
+      expect(content).to include('wire_api = "responses"')
+      expect(content).to include('env_key = "LEGION_API_KEY"')
+    end
+
+    it 'creates ~/.claude/settings.json with proxy env vars' do
+      capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+      expect(File.exist?(claude_path)).to be true
+
+      data = JSON.parse(File.read(claude_path))
+      env = data['env']
+      expect(env['ANTHROPIC_BASE_URL']).to eq('http://localhost:4567')
+      expect(env['ANTHROPIC_API_KEY']).to eq('legion')
+      expect(env['ANTHROPIC_AUTH_TOKEN']).to eq('legion')
+      expect(env['ANTHROPIC_DEFAULT_OPUS_MODEL']).to eq('legionio')
+      expect(env['ANTHROPIC_DEFAULT_SONNET_MODEL']).to eq('legionio')
+      expect(env['ANTHROPIC_DEFAULT_HAIKU_MODEL']).to eq('legionio')
+    end
+
+    it 'preserves existing Claude Code settings when merging env' do
+      FileUtils.mkdir_p(File.dirname(claude_path))
+      File.write(claude_path, JSON.pretty_generate({
+                                                     'mcpServers' => { 'legion' => { 'command' => 'legionio', 'args' => %w[mcp stdio] } },
+                                                     'env'        => { 'EXISTING_VAR' => 'preserve' }
+                                                   }))
+
+      capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+      data = JSON.parse(File.read(claude_path))
+      expect(data.dig('mcpServers', 'legion', 'command')).to eq('legionio')
+      expect(data.dig('env', 'EXISTING_VAR')).to eq('preserve')
+      expect(data.dig('env', 'ANTHROPIC_BASE_URL')).to eq('http://localhost:4567')
+    end
+
+    it 'skips codex config when file exists without --force' do
+      FileUtils.mkdir_p(File.dirname(codex_path))
+      File.write(codex_path, 'existing content')
+
+      output = capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+      expect(output).to include('Skipped')
+    end
+
+    it 'overwrites when --force is passed' do
+      FileUtils.mkdir_p(File.dirname(codex_path))
+      File.write(codex_path, 'existing content')
+      FileUtils.mkdir_p(File.dirname(claude_path))
+      File.write(claude_path, '{}')
+
+      output = capture_stdout { described_class.start(%w[proxy-mode --force --no-color]) }
+      expect(output).to include('Written')
+    end
+
+    it 'accepts --port and --host options' do
+      capture_stdout { described_class.start(%w[proxy-mode --host 0.0.0.0 --port 9292 --no-color]) }
+      expect(File.exist?(codex_path)).to be true
+
+      content = File.read(codex_path)
+      expect(content).to include('base_url = "http://0.0.0.0:9292/v1"')
+
+      claude_data = JSON.parse(File.read(claude_path))
+      expect(claude_data['env']['ANTHROPIC_BASE_URL']).to eq('http://0.0.0.0:9292')
+    end
+
+    it 'outputs JSON when --json is passed' do
+      output = capture_stdout { described_class.start(%w[proxy-mode --json]) }
+      parsed = JSON.parse(output, symbolize_names: true)
+      expect(parsed[:written]).to be_an(Array)
+      expect(parsed[:skipped]).to be_an(Array)
+      expect(parsed[:base_url]).to include('localhost:4567')
+    end
+
+    it 'registers the proxy command' do
+      commands = described_class.all_commands.keys
+      expect(commands).to include('proxy_mode')
+    end
+  end
 end

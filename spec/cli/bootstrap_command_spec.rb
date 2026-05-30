@@ -397,7 +397,7 @@ RSpec.describe Legion::CLI::Bootstrap do
     context 'when gem installs successfully' do
       before do
         allow(cli).to receive(:shell_capture)
-          .with('/usr/bin/gem install lex-foo --no-document')
+          .with('/usr/bin/gem install lex-foo --no-document --clear-sources --source https://rubygems.org/')
           .and_return(['Successfully installed lex-foo-0.1.0', true])
       end
 
@@ -410,7 +410,7 @@ RSpec.describe Legion::CLI::Bootstrap do
     context 'when gem install fails' do
       before do
         allow(cli).to receive(:shell_capture)
-          .with('/usr/bin/gem install lex-foo --no-document')
+          .with('/usr/bin/gem install lex-foo --no-document --clear-sources --source https://rubygems.org/')
           .and_return(["ERROR: Could not find gem 'lex-foo'", false])
       end
 

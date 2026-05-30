@@ -43,6 +43,8 @@ RSpec.describe Legion::CLI::Chat::Tools::GenerateInsights do
 
     it 'handles daemon not running' do
       allow(tool).to receive(:safe_fetch).and_return(nil)
+      allow(tool).to receive(:scheduling_status).and_return(nil)
+      allow(tool).to receive(:llm_status).and_return(nil)
       result = tool.call
       expect(result).to include('daemon not running')
     end

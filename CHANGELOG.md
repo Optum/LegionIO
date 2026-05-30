@@ -1,6 +1,18 @@
 # Legion Changelog
 
-## [Unreleased]
+## [1.9.37] - 2026-05-29
+
+### Added
+- LLM: namespace API enabled by default — LegionIO now routes all `/v1/` and `/api/llm/` traffic
+  through `Namespaces::Registration` (Sinatra::Namespace, Phases 0-4 complete in legion-llm ≥ 0.8.50)
+- CLI: `legion setup proxy-mode` (alias: `proxy`) writes `~/.codex/config.toml` and
+  `~/.claude/settings.json` env block so Codex CLI and Claude Code connect to LegionIO at
+  `http://localhost:4567` out of the box. Supports `--port`, `--host`, `--force`, `--json`.
+
+### Fixed
+- LLM: Anthropic namespace message translation now properly converts `tool_use`/`tool_result` content blocks to OpenAI format for vLLM dispatch (requires legion-llm ≥ 0.10.1)
+- LLM: streaming tool_use blocks emitted inline with guaranteed ordering before `message_stop`
+- LLM: curator preserves recent turns — no longer curates tool results from the current/previous turn
 
 ## [1.9.36] - 2026-05-22
 
