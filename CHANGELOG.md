@@ -1,6 +1,6 @@
 # Legion Changelog
 
-## [Unreleased]
+## [1.9.37] - 2026-05-29
 
 ### Added
 - LLM: namespace API enabled by default — LegionIO now routes all `/v1/` and `/api/llm/` traffic
