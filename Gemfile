@@ -20,8 +20,8 @@ gem 'legion-tty', path: '../legion-tty' if File.exist?(File.expand_path('../legi
 
 gem 'lex-apollo', path: '../extensions/lex-apollo' if File.exist?(File.expand_path('../extensions/lex-apollo', __dir__))
 gem 'lex-llm', path: '../extensions-ai/lex-llm' if File.exist?(File.expand_path('../extensions-ai/lex-llm', __dir__))
-# gem 'lex-llm-ledger', path: '../extensions-ai/lex-llm-ledger' if File.exist?(File.expand_path('../extensions-ai/lex-llm-ledger', __dir__))
-# gem 'lex-lex', path: '../extensions/lex-lex' if File.exist?(File.expand_path('../extensions/lex-lex', __dir__))
+gem 'lex-llm-ledger', path: '../extensions-ai/lex-llm-ledger' if File.exist?(File.expand_path('../extensions-ai/lex-llm-ledger', __dir__))
+gem 'lex-lex', path: '../extensions/lex-lex' if File.exist?(File.expand_path('../extensions/lex-lex', __dir__))
 # gem 'lex-microsoft_teams', path: '../extensions/lex-microsoft_teams' if File.exist?(File.expand_path('../extensions/lex-microsoft_teams', __dir__))
 # gem 'lex-lex', path: '../extensions/lex-lex' if File.exist?(File.expand_path('../extensions/lex-lex', __dir__))
 
