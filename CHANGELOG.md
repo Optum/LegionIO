@@ -1,5 +1,10 @@
 # Legion Changelog
 
+## [1.9.38] - 2026-05-30
+
+### Fixed
+- Gemspec: require legion-llm >= 0.10.1 (message translation, streaming, curator fixes required for Claude Code and Codex CLI agentic tool loops via vLLM)
+
 ## [1.9.37] - 2026-05-29
 
 ### Added
