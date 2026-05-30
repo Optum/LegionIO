@@ -9,6 +9,11 @@
   `~/.claude/settings.json` env block so Codex CLI and Claude Code connect to LegionIO at
   `http://localhost:4567` out of the box. Supports `--port`, `--host`, `--force`, `--json`.
 
+### Fixed
+- LLM: Anthropic namespace message translation now properly converts `tool_use`/`tool_result` content blocks to OpenAI format for vLLM dispatch (requires legion-llm ≥ 0.10.1)
+- LLM: streaming tool_use blocks emitted inline with guaranteed ordering before `message_stop`
+- LLM: curator preserves recent turns — no longer curates tool results from the current/previous turn
+
 ## [1.9.36] - 2026-05-22
 
 ### Fixed
