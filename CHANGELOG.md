@@ -1,5 +1,10 @@
 # Legion Changelog
 
+## [1.9.39] - 2026-05-30
+
+### Fixed
+- CLI: remove `--clear-sources` from `gem install` in bootstrap and setup commands (breaks pack reinstall when custom sources are configured)
+
 ## [1.9.38] - 2026-05-30
 
 ### Fixed
