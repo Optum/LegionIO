@@ -18,15 +18,11 @@ log.level = Logger::INFO
 dry_run = ENV['ROLLBACK_DRY_RUN'] == 'true'
 manifest_dir = ENV.fetch('MANIFEST_DIR', '/tmp/legion_migration_manifests')
 
-unless File.directory?(manifest_dir)
-  abort "No manifest directory at #{manifest_dir} — nothing to rollback"
-end
+abort "No manifest directory at #{manifest_dir} — nothing to rollback" unless File.directory?(manifest_dir)
 
 # Read prod creds
 prod_settings_path = File.expand_path('~/.legionio/settings/z_data_override.json')
-unless File.exist?(prod_settings_path)
-  abort "Missing #{prod_settings_path}"
-end
+abort "Missing #{prod_settings_path}" unless File.exist?(prod_settings_path)
 prod_config = JSON.parse(File.read(prod_settings_path))
 prod_creds = prod_config.dig('data', 'creds') || abort("No data.creds in #{prod_settings_path}")
 prod_url = "postgres://#{prod_creds['user']}:#{URI.encode_www_form_component(prod_creds['password'])}@#{prod_creds['host']}/#{prod_creds['database']}"
@@ -59,6 +55,7 @@ TABLES_REVERSE.each do |table|
   # Read prod IDs (second column in "local_id,prod_id" format)
   ids = File.readlines(ids_file, chomp: true).filter_map do |line|
     next if line.strip.empty?
+
     line.split(',')[1]&.to_i
   end
 
@@ -85,7 +82,7 @@ end
 unless dry_run
   requests_manifest = File.join(manifest_dir, 'llm_message_inference_requests.json')
   if File.exist?(requests_manifest)
-    req_ids = JSON.parse(File.read(requests_manifest))['inserted_ids'] || []
+    JSON.parse(File.read(requests_manifest))['inserted_ids'] || []
     # These were inserted rows that got deleted above, so no backfill undo needed
   end
 end
