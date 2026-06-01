@@ -162,7 +162,6 @@ def remap_identity_columns(row, principal_map, identity_map)
 end
 
 MANIFEST_DIR = '/tmp/legion_migration_manifests'
-FREEZE_ERROR = FrozenError # rubocop:disable Lint/UselessConstant
 
 # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity, Metrics/ParameterLists
 def migrate_table(local_db, prod_db, table, id_map_out, log:, dry_run:, fk_maps: {}, identity_maps: {})
