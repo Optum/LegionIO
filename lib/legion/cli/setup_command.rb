@@ -167,7 +167,7 @@ module Legion
         skipped = []
 
         write_codex_config(base_url, written, skipped)
-        write_claude_code_proxy_config(base_url, written, skipped)
+        # write_claude_code_proxy_config(base_url, written, skipped) # too destructive for enterprise users
         write_zsh_legionio(base_url, written, skipped)
 
         if options[:json]

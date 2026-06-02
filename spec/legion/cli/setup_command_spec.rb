@@ -452,32 +452,9 @@ RSpec.describe Legion::CLI::Setup do
       expect(model['context_window']).to eq(262_144)
     end
 
-    it 'creates ~/.claude/settings.json with proxy env vars' do
+    it 'does not write ~/.claude/settings.json' do
       capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
-      expect(File.exist?(claude_path)).to be true
-
-      data = JSON.parse(File.read(claude_path))
-      env = data['env']
-      expect(env['ANTHROPIC_BASE_URL']).to eq('http://localhost:4567')
-      expect(env['ANTHROPIC_API_KEY']).to eq('legion')
-      expect(env['ANTHROPIC_AUTH_TOKEN']).to eq('legion')
-      expect(env['ANTHROPIC_DEFAULT_OPUS_MODEL']).to eq('legionio')
-      expect(env['ANTHROPIC_DEFAULT_SONNET_MODEL']).to eq('legionio')
-      expect(env['ANTHROPIC_DEFAULT_HAIKU_MODEL']).to eq('legionio')
-    end
-
-    it 'preserves existing Claude Code settings when merging env' do
-      FileUtils.mkdir_p(File.dirname(claude_path))
-      File.write(claude_path, JSON.pretty_generate({
-                                                     'mcpServers' => { 'legion' => { 'command' => 'legionio', 'args' => %w[mcp stdio] } },
-                                                     'env'        => { 'EXISTING_VAR' => 'preserve' }
-                                                   }))
-
-      capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
-      data = JSON.parse(File.read(claude_path))
-      expect(data.dig('mcpServers', 'legion', 'command')).to eq('legionio')
-      expect(data.dig('env', 'EXISTING_VAR')).to eq('preserve')
-      expect(data.dig('env', 'ANTHROPIC_BASE_URL')).to eq('http://localhost:4567')
+      expect(File.exist?(claude_path)).to be false
     end
 
     it 'injects profile into existing config.toml without destroying its content' do
@@ -516,9 +493,6 @@ RSpec.describe Legion::CLI::Setup do
 
       content = File.read(profile_path)
       expect(content).to include('base_url = "http://0.0.0.0:9292/v1"')
-
-      claude_data = JSON.parse(File.read(claude_path))
-      expect(claude_data['env']['ANTHROPIC_BASE_URL']).to eq('http://0.0.0.0:9292')
     end
 
     it 'outputs JSON when --json is passed' do
