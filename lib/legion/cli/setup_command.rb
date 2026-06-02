@@ -865,6 +865,7 @@ module Legion
               export ANTHROPIC_DEFAULT_SONNET_MODEL=legionio
               export ANTHROPIC_DEFAULT_HAIKU_MODEL=legionio
               export CLAUDE_CODE_USE_BEDROCK=
+              export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1
               export AWS_PROFILE=
               export AWS_REGION=
               claude --model legionio "$@"
