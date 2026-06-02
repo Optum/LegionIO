@@ -414,16 +414,38 @@ RSpec.describe Legion::CLI::Setup do
       allow(File).to receive(:expand_path).with('~/.claude/settings.json').and_return(claude_path)
     end
 
-    it 'creates ~/.codex/config.toml with legion proxy config' do
+    it 'creates ~/.codex/config.toml pointing at the legionio profile' do
       capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
       expect(File.exist?(codex_path)).to be true
 
       content = File.read(codex_path)
+      expect(content).to include('profile = "legionio"')
+    end
+
+    it 'creates ~/.codex/legionio.config.toml with provider config' do
+      capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+      profile_path = File.join(codex_dir, 'legionio.config.toml')
+      expect(File.exist?(profile_path)).to be true
+
+      content = File.read(profile_path)
       expect(content).to include('model = "legionio"')
-      expect(content).to include('model_provider = "legion"')
+      expect(content).to include('model_provider = "legionio"')
       expect(content).to include('base_url = "http://localhost:4567/v1"')
       expect(content).to include('wire_api = "responses"')
       expect(content).to include('env_key = "LEGION_API_KEY"')
+      expect(content).to include('model_catalog_json')
+    end
+
+    it 'creates ~/.codex/legionio-catalog.json with legionio model entry' do
+      capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+      catalog_path = File.join(codex_dir, 'legionio-catalog.json')
+      expect(File.exist?(catalog_path)).to be true
+
+      catalog = JSON.parse(File.read(catalog_path))
+      model = catalog['models'].first
+      expect(model['id']).to eq('legionio')
+      expect(model['context_size']).to eq(262_144)
+      expect(model['context_window']).to eq(262_144)
     end
 
     it 'creates ~/.claude/settings.json with proxy env vars' do
@@ -474,9 +496,10 @@ RSpec.describe Legion::CLI::Setup do
 
     it 'accepts --port and --host options' do
       capture_stdout { described_class.start(%w[proxy-mode --host 0.0.0.0 --port 9292 --no-color]) }
-      expect(File.exist?(codex_path)).to be true
+      profile_path = File.join(codex_dir, 'legionio.config.toml')
+      expect(File.exist?(profile_path)).to be true
 
-      content = File.read(codex_path)
+      content = File.read(profile_path)
       expect(content).to include('base_url = "http://0.0.0.0:9292/v1"')
 
       claude_data = JSON.parse(File.read(claude_path))

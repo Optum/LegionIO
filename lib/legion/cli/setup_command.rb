@@ -169,8 +169,12 @@ module Legion
         write_codex_config(base_url, written, skipped)
         write_claude_code_proxy_config(base_url, written, skipped)
 
+        codex_config_path = File.expand_path('~/.codex/config.toml')
+        main_config_skipped = skipped.include?(codex_config_path)
+
         if options[:json]
-          out.json(written: written, skipped: skipped, base_url: base_url)
+          out.json(written: written, skipped: skipped, base_url: base_url,
+                   profile: 'legionio', main_config_skipped: main_config_skipped)
         else
           out.spacer
           out.success("LegionIO proxy mode configured (#{written.size} written, #{skipped.size} skipped)")
@@ -178,8 +182,14 @@ module Legion
           skipped.each { |f| puts "  Skipped (already exists, use --force to overwrite): #{f}" }
           out.spacer
           puts "  LegionIO API: #{base_url.sub('/v1', '')}"
-          puts '  Codex CLI:    legion llm proxy (uses ~/.codex/config.toml)'
+          puts '  Codex CLI:    codex --profile legionio'
           puts '  Claude Code:  set ANTHROPIC_BASE_URL in your shell or ~/.claude/settings.json'
+          if main_config_skipped
+            out.spacer
+            puts '  Existing ~/.codex/config.toml preserved.'
+            puts '  To activate the LegionIO profile by default, add this to your config.toml:'
+            puts '    profile = "legionio"'
+          end
           out.spacer
         end
       end
@@ -742,31 +752,88 @@ module Legion
         end
 
         def write_codex_config(base_url, written, skipped)
-          codex_dir  = File.expand_path('~/.codex')
-          codex_path = File.join(codex_dir, 'config.toml')
+          codex_dir = File.expand_path('~/.codex')
+          FileUtils.mkdir_p(codex_dir)
 
-          if File.exist?(codex_path) && !options[:force]
-            skipped << codex_path
+          write_codex_profile(codex_dir, base_url, written, skipped)
+          write_codex_catalog(codex_dir, written, skipped)
+          write_codex_main_config(codex_dir, base_url, written, skipped)
+        end
+
+        def write_codex_profile(codex_dir, base_url, written, skipped)
+          profile_path = File.join(codex_dir, 'legionio.config.toml')
+
+          if File.exist?(profile_path) && !options[:force]
+            skipped << profile_path
             return
           end
 
-          FileUtils.mkdir_p(codex_dir)
-
+          catalog_path = File.join(codex_dir, 'legionio-catalog.json')
           content = <<~TOML
             model = "legionio"
-            model_provider = "legion"
+            model_provider = "legionio"
+            model_catalog_json = "#{catalog_path}"
 
-            [model_providers.legion]
+            [model_providers.legionio]
             name = "LegionIO"
             env_key = "LEGION_API_KEY"
             base_url = "#{base_url}"
             wire_api = "responses"
           TOML
 
-          File.write(codex_path, content)
-          written << codex_path
+          File.write(profile_path, content)
+          written << profile_path
         rescue StandardError => e
-          raise Thor::Error, "Failed to write #{codex_path}: #{e.message}"
+          raise Thor::Error, "Failed to write #{profile_path}: #{e.message}"
+        end
+
+        def write_codex_catalog(codex_dir, written, skipped)
+          catalog_path = File.join(codex_dir, 'legionio-catalog.json')
+
+          if File.exist?(catalog_path) && !options[:force]
+            skipped << catalog_path
+            return
+          end
+
+          catalog = {
+            models: [
+              {
+                id:             'legionio',
+                name:           'LegionIO',
+                context_size:   262_144,
+                context_window: 262_144
+              },
+              {
+                id:             'auto',
+                name:           'LegionIO (auto)',
+                context_size:   262_144,
+                context_window: 262_144
+              }
+            ]
+          }
+
+          File.write(catalog_path, ::JSON.pretty_generate(catalog))
+          written << catalog_path
+        rescue StandardError => e
+          raise Thor::Error, "Failed to write #{catalog_path}: #{e.message}"
+        end
+
+        def write_codex_main_config(codex_dir, _base_url, written, skipped)
+          config_path = File.join(codex_dir, 'config.toml')
+
+          if File.exist?(config_path)
+            skipped << config_path
+            return
+          end
+
+          content = <<~TOML
+            profile = "legionio"
+          TOML
+
+          File.write(config_path, content)
+          written << config_path
+        rescue StandardError => e
+          raise Thor::Error, "Failed to write #{config_path}: #{e.message}"
         end
 
         def write_claude_code_proxy_config(base_url, written, skipped)
