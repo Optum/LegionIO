@@ -476,12 +476,23 @@ RSpec.describe Legion::CLI::Setup do
       expect(data.dig('env', 'ANTHROPIC_BASE_URL')).to eq('http://localhost:4567')
     end
 
-    it 'skips codex config when file exists without --force' do
+    it 'injects profile into existing config.toml without destroying its content' do
       FileUtils.mkdir_p(File.dirname(codex_path))
-      File.write(codex_path, 'existing content')
+      File.write(codex_path, "[model_providers.openai]\napi_key = \"sk-existing\"\n")
 
-      output = capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
-      expect(output).to include('Skipped')
+      capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+      content = File.read(codex_path)
+      expect(content).to include('profile = "legionio"')
+      expect(content).to include('api_key = "sk-existing"')
+    end
+
+    it 'does not duplicate profile line when config.toml already has it' do
+      FileUtils.mkdir_p(File.dirname(codex_path))
+      File.write(codex_path, "profile = \"legionio\"\n")
+
+      capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+      content = File.read(codex_path)
+      expect(content.scan('profile = "legionio"').size).to eq(1)
     end
 
     it 'overwrites when --force is passed' do
