@@ -408,6 +408,7 @@ RSpec.describe Legion::CLI::Setup do
     let(:claude_path) { File.join(claude_dir, 'settings.json') }
     let(:zshrc_path)  { File.join(tmpdir, '.zshrc') }
     let(:zsh_file)    { File.join(tmpdir, '.zsh_legionio') }
+    let(:packs_dir)   { File.join(tmpdir, '.legionio', '.packs') }
 
     before do
       allow(File).to receive(:expand_path).with('~/.codex').and_return(codex_dir)
@@ -416,6 +417,9 @@ RSpec.describe Legion::CLI::Setup do
       allow(File).to receive(:expand_path).with('~/.claude/settings.json').and_return(claude_path)
       allow(File).to receive(:expand_path).with('~/.zshrc').and_return(zshrc_path)
       allow(File).to receive(:expand_path).with('~/.zsh_legionio').and_return(zsh_file)
+      allow(File).to receive(:expand_path).with('~/.legionio/.packs').and_return(packs_dir)
+      allow(File).to receive(:expand_path).with('~/.legionio/settings/packs.json').and_return(File.join(tmpdir, '.legionio', 'settings', 'packs.json'))
+      allow(File).to receive(:expand_path).with('~/.legionio/.packs/proxy-mode').and_return(File.join(packs_dir, 'proxy-mode'))
     end
 
     it 'creates ~/.codex/config.toml pointing at the legionio profile' do

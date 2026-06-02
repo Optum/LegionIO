@@ -166,9 +166,13 @@ module Legion
         written = []
         skipped = []
 
+        llm_installed, = partition_gems(PACKS[:llm][:gems])
+        out.warn('LLM pack not installed. Run: legionio setup llm') if llm_installed.empty? && !options[:json]
+
         write_codex_config(base_url, written, skipped)
         # write_claude_code_proxy_config(base_url, written, skipped) # too destructive for enterprise users
         write_zsh_legionio(base_url, written, skipped)
+        write_pack_marker(:'proxy-mode')
 
         if options[:json]
           out.json(written: written, skipped: skipped, base_url: base_url, profile: 'legionio')
@@ -319,6 +323,7 @@ module Legion
         end
 
         write_python_marker(python3, packages)
+        write_pack_marker(:python)
 
         if options[:json]
           out.json(venv: PYTHON_VENV_DIR, python: python_version(python3), results: results)
@@ -345,8 +350,15 @@ module Legion
             missing: missing }
         end
 
+        python_status  = { name: :python, description: 'Python venv + document/data packages',
+                           installed: File.exist?(PYTHON_MARKER), missing: [] }
+        proxy_status   = { name: :'proxy-mode', description: 'Codex CLI + shell helper functions for LegionIO proxy',
+                           installed: File.exist?(File.expand_path('~/.legionio/.packs/proxy-mode')), missing: [] }
+
         if options[:json]
-          out.json(packs: pack_statuses)
+          out.json(packs:      pack_statuses,
+                   python:     python_status.slice(:name, :description, :installed),
+                   proxy_mode: proxy_status.slice(:name, :description, :installed))
         else
           out.header('Feature Packs')
           out.spacer
@@ -360,6 +372,10 @@ module Legion
             ps[:missing].each do |g|
               puts "    #{out.colorize(g, :muted)} (missing)"
             end
+          end
+          [python_status, proxy_status].each do |ps|
+            icon = ps[:installed] ? out.colorize('installed', :success) : out.colorize('not installed', :muted)
+            puts "  #{out.colorize(ps[:name].to_s.ljust(12), :label)} #{icon}  #{ps[:description]}"
           end
           out.spacer
         end
