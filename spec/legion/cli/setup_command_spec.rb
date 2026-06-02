@@ -529,6 +529,9 @@ RSpec.describe Legion::CLI::Setup do
           expect(content).to include('codex-legionio()')
           expect(content).to include('ANTHROPIC_BASE_URL=http://localhost:4567')
           expect(content).to include('CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1')
+          expect(content).to include('unset ANTHROPIC_DEFAULT_OPUS_MODEL')
+          expect(content).to include('unset ANTHROPIC_DEFAULT_SONNET_MODEL')
+          expect(content).to include('unset ANTHROPIC_DEFAULT_HAIKU_MODEL')
           expect(content).to include('claude --model legionio')
           expect(content).to include('codex --provider legionio')
         end

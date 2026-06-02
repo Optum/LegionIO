@@ -861,13 +861,13 @@ module Legion
               export ANTHROPIC_BASE_URL=#{host_base}
               export ANTHROPIC_API_KEY=legion
               export ANTHROPIC_AUTH_TOKEN=
-              export ANTHROPIC_DEFAULT_OPUS_MODEL=legionio
-              export ANTHROPIC_DEFAULT_SONNET_MODEL=legionio
-              export ANTHROPIC_DEFAULT_HAIKU_MODEL=legionio
-              export CLAUDE_CODE_USE_BEDROCK=
               export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1
+              export CLAUDE_CODE_USE_BEDROCK=
               export AWS_PROFILE=
               export AWS_REGION=
+              unset ANTHROPIC_DEFAULT_OPUS_MODEL
+              unset ANTHROPIC_DEFAULT_SONNET_MODEL
+              unset ANTHROPIC_DEFAULT_HAIKU_MODEL
               claude --model legionio "$@"
             }
 
