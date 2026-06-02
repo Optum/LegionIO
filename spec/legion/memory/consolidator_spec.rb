@@ -92,6 +92,7 @@ RSpec.describe Legion::Memory::Consolidator do
 
   describe '.run' do
     before do
+      allow(Legion::Settings).to receive(:dig).and_return(nil)
       allow(Legion::Settings).to receive(:dig).with(:memory, :consolidation)
                                               .and_return({ enabled: true, min_hours: 0, min_sessions: 1 })
     end
