@@ -181,6 +181,11 @@ module Legion
           puts "  LegionIO API: #{base_url.sub('/v1', '')}"
           puts '  Codex CLI:    codex --profile legionio'
           puts '  Claude Code:  set ANTHROPIC_BASE_URL in your shell or ~/.claude/settings.json'
+          if written.any? { |f| f.end_with?('.zsh_legionio') }
+            out.spacer
+            puts '  To activate shell functions in this session, run:'
+            puts '    source ~/.zsh_legionio'
+          end
           out.spacer
         end
       end
