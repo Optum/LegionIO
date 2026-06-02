@@ -20,10 +20,6 @@ RSpec.describe Legion::Extensions::Builder::Routes do
       def lex_class
         'Lex::TestLex'
       end
-
-      def settings
-        {}
-      end
     end.new
   end
 
