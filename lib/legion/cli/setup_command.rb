@@ -788,7 +788,7 @@ module Legion
 
             [model_providers.legionio]
             name = "LegionIO"
-            env_key = "LEGION_API_KEY"
+            api_key = "legion"
             base_url = "#{base_url}"
             wire_api = "responses"
           TOML
@@ -810,16 +810,16 @@ module Legion
           catalog = {
             models: [
               {
-                id:             'legionio',
-                name:           'LegionIO',
-                context_size:   262_144,
-                context_window: 262_144
+                slug:           'legionio',
+                display_name:   'LegionIO',
+                context_window: 262_144,
+                context_size:   262_144
               },
               {
-                id:             'auto',
-                name:           'LegionIO (auto)',
-                context_size:   262_144,
-                context_window: 262_144
+                slug:           'auto',
+                display_name:   'LegionIO (auto)',
+                context_window: 262_144,
+                context_size:   262_144
               }
             ]
           }
@@ -830,16 +830,35 @@ module Legion
           raise Thor::Error, "Failed to write #{catalog_path}: #{e.message}"
         end
 
-        def write_codex_main_config(codex_dir, _base_url, written, _skipped)
+        def write_codex_main_config(codex_dir, base_url, written, _skipped)
           config_path = File.join(codex_dir, 'config.toml')
           existing = File.exist?(config_path) ? File.read(config_path) : ''
 
-          if existing.match?(/^\s*profile\s*=\s*"legionio"/)
-            written << config_path
-            return
+          # Upsert [model_providers.legionio] block so the provider appears in the
+          # model picker in both the CLI and the Codex Mac app.
+          # No profile = line (removed by Codex). No model_catalog_json at top level
+          # (Codex enforces a strict schema with required fields that breaks the app).
+          provider_block = <<~TOML
+
+            [model_providers.legionio]
+            name = "LegionIO"
+            api_key = "legion"
+            base_url = "#{base_url}"
+            wire_api = "responses"
+          TOML
+
+          updated = existing.dup
+
+          # Only match uncommented [model_providers.legionio] section headers
+          if updated.match?(/^\[model_providers\.legionio\]/)
+            updated = updated.gsub(
+              /^\[model_providers\.legionio\].*?(?=\n\[|\z)/m,
+              provider_block.lstrip
+            )
+          else
+            updated = updated.rstrip + "\n" + provider_block
           end
 
-          updated = existing.empty? ? "profile = \"legionio\"\n" : "profile = \"legionio\"\n\n#{existing.lstrip}"
           File.write(config_path, updated)
           written << config_path
         rescue StandardError => e
@@ -872,7 +891,7 @@ module Legion
             }
 
             codex-legionio() {
-              codex --provider legionio "$@"
+              codex --profile legionio "$@"
             }
           ZSH
 
