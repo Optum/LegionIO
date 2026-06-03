@@ -850,14 +850,14 @@ module Legion
           updated = existing.dup
 
           # Only match uncommented [model_providers.legionio] section headers
-          if updated.match?(/^\[model_providers\.legionio\]/)
-            updated = updated.gsub(
-              /^\[model_providers\.legionio\].*?(?=\n\[|\z)/m,
-              provider_block.lstrip
-            )
-          else
-            updated = updated.rstrip + "\n" + provider_block
-          end
+          updated = if updated.match?(/^\[model_providers\.legionio\]/)
+                      updated.gsub(
+                        /^\[model_providers\.legionio\].*?(?=\n\[|\z)/m,
+                        provider_block.lstrip
+                      )
+                    else
+                      "#{updated.rstrip}\n#{provider_block}"
+                    end
 
           File.write(config_path, updated)
           written << config_path
