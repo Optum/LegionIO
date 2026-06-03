@@ -422,12 +422,15 @@ RSpec.describe Legion::CLI::Setup do
       allow(File).to receive(:expand_path).with('~/.legionio/.packs/proxy-mode').and_return(File.join(packs_dir, 'proxy-mode'))
     end
 
-    it 'creates ~/.codex/config.toml pointing at the legionio profile' do
+    it 'upserts [model_providers.legionio] block into ~/.codex/config.toml' do
       capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
       expect(File.exist?(codex_path)).to be true
 
       content = File.read(codex_path)
-      expect(content).to include('profile = "legionio"')
+      expect(content).to include('[model_providers.legionio]')
+      expect(content).to include('base_url = "http://localhost:4567/v1"')
+      expect(content).to include('wire_api = "responses"')
+      expect(content).not_to include('profile = "legionio"')
     end
 
     it 'creates ~/.codex/legionio.config.toml with provider config' do
@@ -440,7 +443,7 @@ RSpec.describe Legion::CLI::Setup do
       expect(content).to include('model_provider = "legionio"')
       expect(content).to include('base_url = "http://localhost:4567/v1"')
       expect(content).to include('wire_api = "responses"')
-      expect(content).to include('env_key = "LEGION_API_KEY"')
+      expect(content).to include('api_key = "legion"')
       expect(content).to include('model_catalog_json')
     end
 
@@ -451,9 +454,10 @@ RSpec.describe Legion::CLI::Setup do
 
       catalog = JSON.parse(File.read(catalog_path))
       model = catalog['models'].first
-      expect(model['id']).to eq('legionio')
-      expect(model['context_size']).to eq(262_144)
+      expect(model['slug']).to eq('legionio')
+      expect(model['display_name']).to eq('LegionIO')
       expect(model['context_window']).to eq(262_144)
+      expect(model['context_size']).to eq(262_144)
     end
 
     it 'does not write ~/.claude/settings.json' do
@@ -461,14 +465,15 @@ RSpec.describe Legion::CLI::Setup do
       expect(File.exist?(claude_path)).to be false
     end
 
-    it 'injects profile into existing config.toml without destroying its content' do
+    it 'adds provider block to existing config.toml without destroying its content' do
       FileUtils.mkdir_p(File.dirname(codex_path))
       File.write(codex_path, "[model_providers.openai]\napi_key = \"sk-existing\"\n")
 
       capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
       content = File.read(codex_path)
-      expect(content).to include('profile = "legionio"')
+      expect(content).to include('[model_providers.legionio]')
       expect(content).to include('api_key = "sk-existing"')
+      expect(content).not_to include('profile = "legionio"')
     end
 
     it 'does not duplicate profile line when config.toml already has it' do
@@ -533,7 +538,7 @@ RSpec.describe Legion::CLI::Setup do
           expect(content).to include('unset ANTHROPIC_DEFAULT_SONNET_MODEL')
           expect(content).to include('unset ANTHROPIC_DEFAULT_HAIKU_MODEL')
           expect(content).to include('claude --model legionio')
-          expect(content).to include('codex --provider legionio')
+          expect(content).to include('codex --profile legionio')
         end
 
         it 'appends source line to ~/.zshrc' do
