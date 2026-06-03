@@ -166,11 +166,16 @@ module Legion
         written = []
         skipped = []
 
+        llm_installed, = partition_gems(PACKS[:llm][:gems])
+        out.warn('LLM pack not installed. Run: legionio setup llm') if llm_installed.empty? && !options[:json]
+
         write_codex_config(base_url, written, skipped)
-        write_claude_code_proxy_config(base_url, written, skipped)
+        # write_claude_code_proxy_config(base_url, written, skipped) # too destructive for enterprise users
+        write_zsh_legionio(base_url, written, skipped)
+        write_pack_marker(:'proxy-mode')
 
         if options[:json]
-          out.json(written: written, skipped: skipped, base_url: base_url)
+          out.json(written: written, skipped: skipped, base_url: base_url, profile: 'legionio')
         else
           out.spacer
           out.success("LegionIO proxy mode configured (#{written.size} written, #{skipped.size} skipped)")
@@ -178,8 +183,13 @@ module Legion
           skipped.each { |f| puts "  Skipped (already exists, use --force to overwrite): #{f}" }
           out.spacer
           puts "  LegionIO API: #{base_url.sub('/v1', '')}"
-          puts '  Codex CLI:    legion llm proxy (uses ~/.codex/config.toml)'
+          puts '  Codex CLI:    codex --profile legionio'
           puts '  Claude Code:  set ANTHROPIC_BASE_URL in your shell or ~/.claude/settings.json'
+          if written.any? { |f| f.end_with?('.zsh_legionio') }
+            out.spacer
+            puts '  To activate shell functions in this session, run:'
+            puts '    source ~/.zsh_legionio'
+          end
           out.spacer
         end
       end
@@ -313,6 +323,7 @@ module Legion
         end
 
         write_python_marker(python3, packages)
+        write_pack_marker(:python)
 
         if options[:json]
           out.json(venv: PYTHON_VENV_DIR, python: python_version(python3), results: results)
@@ -339,8 +350,15 @@ module Legion
             missing: missing }
         end
 
+        python_status  = { name: :python, description: 'Python venv + document/data packages',
+                           installed: File.exist?(PYTHON_MARKER), missing: [] }
+        proxy_status   = { name: :'proxy-mode', description: 'Codex CLI + shell helper functions for LegionIO proxy',
+                           installed: File.exist?(File.expand_path('~/.legionio/.packs/proxy-mode')), missing: [] }
+
         if options[:json]
-          out.json(packs: pack_statuses)
+          out.json(packs:      pack_statuses,
+                   python:     python_status.slice(:name, :description, :installed),
+                   proxy_mode: proxy_status.slice(:name, :description, :installed))
         else
           out.header('Feature Packs')
           out.spacer
@@ -354,6 +372,10 @@ module Legion
             ps[:missing].each do |g|
               puts "    #{out.colorize(g, :muted)} (missing)"
             end
+          end
+          [python_status, proxy_status].each do |ps|
+            icon = ps[:installed] ? out.colorize('installed', :success) : out.colorize('not installed', :muted)
+            puts "  #{out.colorize(ps[:name].to_s.ljust(12), :label)} #{icon}  #{ps[:description]}"
           end
           out.spacer
         end
@@ -742,31 +764,129 @@ module Legion
         end
 
         def write_codex_config(base_url, written, skipped)
-          codex_dir  = File.expand_path('~/.codex')
-          codex_path = File.join(codex_dir, 'config.toml')
+          codex_dir = File.expand_path('~/.codex')
+          FileUtils.mkdir_p(codex_dir)
 
-          if File.exist?(codex_path) && !options[:force]
-            skipped << codex_path
+          write_codex_profile(codex_dir, base_url, written, skipped)
+          write_codex_catalog(codex_dir, written, skipped)
+          write_codex_main_config(codex_dir, base_url, written, skipped)
+        end
+
+        def write_codex_profile(codex_dir, base_url, written, skipped)
+          profile_path = File.join(codex_dir, 'legionio.config.toml')
+
+          if File.exist?(profile_path) && !options[:force]
+            skipped << profile_path
             return
           end
 
-          FileUtils.mkdir_p(codex_dir)
-
+          catalog_path = File.join(codex_dir, 'legionio-catalog.json')
           content = <<~TOML
             model = "legionio"
-            model_provider = "legion"
+            model_provider = "legionio"
+            model_catalog_json = "#{catalog_path}"
 
-            [model_providers.legion]
+            [model_providers.legionio]
             name = "LegionIO"
             env_key = "LEGION_API_KEY"
             base_url = "#{base_url}"
             wire_api = "responses"
           TOML
 
-          File.write(codex_path, content)
-          written << codex_path
+          File.write(profile_path, content)
+          written << profile_path
         rescue StandardError => e
-          raise Thor::Error, "Failed to write #{codex_path}: #{e.message}"
+          raise Thor::Error, "Failed to write #{profile_path}: #{e.message}"
+        end
+
+        def write_codex_catalog(codex_dir, written, skipped)
+          catalog_path = File.join(codex_dir, 'legionio-catalog.json')
+
+          if File.exist?(catalog_path) && !options[:force]
+            skipped << catalog_path
+            return
+          end
+
+          catalog = {
+            models: [
+              {
+                id:             'legionio',
+                name:           'LegionIO',
+                context_size:   262_144,
+                context_window: 262_144
+              },
+              {
+                id:             'auto',
+                name:           'LegionIO (auto)',
+                context_size:   262_144,
+                context_window: 262_144
+              }
+            ]
+          }
+
+          File.write(catalog_path, ::JSON.pretty_generate(catalog))
+          written << catalog_path
+        rescue StandardError => e
+          raise Thor::Error, "Failed to write #{catalog_path}: #{e.message}"
+        end
+
+        def write_codex_main_config(codex_dir, _base_url, written, _skipped)
+          config_path = File.join(codex_dir, 'config.toml')
+          existing = File.exist?(config_path) ? File.read(config_path) : ''
+
+          if existing.match?(/^\s*profile\s*=\s*"legionio"/)
+            written << config_path
+            return
+          end
+
+          updated = existing.empty? ? "profile = \"legionio\"\n" : "profile = \"legionio\"\n\n#{existing.lstrip}"
+          File.write(config_path, updated)
+          written << config_path
+        rescue StandardError => e
+          raise Thor::Error, "Failed to write #{config_path}: #{e.message}"
+        end
+
+        def write_zsh_legionio(base_url, written, _skipped)
+          zshrc_path = File.expand_path('~/.zshrc')
+          return unless File.exist?(zshrc_path)
+
+          host_base = base_url.sub(%r{/v1$}, '')
+          zsh_file  = File.expand_path('~/.zsh_legionio')
+
+          content = <<~ZSH
+            # LegionIO shell helpers — generated by `legionio setup proxy-mode`
+            # Re-run to update; do not edit manually.
+
+            claude-legionio() {
+              export ANTHROPIC_BASE_URL=#{host_base}
+              export ANTHROPIC_API_KEY=legion
+              export ANTHROPIC_AUTH_TOKEN=
+              export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1
+              export CLAUDE_CODE_USE_BEDROCK=
+              export AWS_PROFILE=
+              export AWS_REGION=
+              unset ANTHROPIC_DEFAULT_OPUS_MODEL
+              unset ANTHROPIC_DEFAULT_SONNET_MODEL
+              unset ANTHROPIC_DEFAULT_HAIKU_MODEL
+              claude --model legionio "$@"
+            }
+
+            codex-legionio() {
+              codex --provider legionio "$@"
+            }
+          ZSH
+
+          File.write(zsh_file, content)
+          written << zsh_file
+
+          source_line = '[ -f ~/.zsh_legionio ] && source ~/.zsh_legionio'
+          zshrc = File.read(zshrc_path)
+          unless zshrc.include?(source_line)
+            File.write(zshrc_path, "#{zshrc.rstrip}\n\n#{source_line}\n")
+            written << zshrc_path
+          end
+        rescue StandardError => e
+          raise Thor::Error, "Failed to write zsh config: #{e.message}"
         end
 
         def write_claude_code_proxy_config(base_url, written, skipped)

@@ -402,64 +402,82 @@ RSpec.describe Legion::CLI::Setup do
   end
 
   describe 'proxy-mode' do
-    let(:codex_dir) { File.join(tmpdir, '.codex') }
-    let(:codex_path) { File.join(codex_dir, 'config.toml') }
-    let(:claude_dir) { File.join(tmpdir, '.claude') }
+    let(:codex_dir)   { File.join(tmpdir, '.codex') }
+    let(:codex_path)  { File.join(codex_dir, 'config.toml') }
+    let(:claude_dir)  { File.join(tmpdir, '.claude') }
     let(:claude_path) { File.join(claude_dir, 'settings.json') }
+    let(:zshrc_path)  { File.join(tmpdir, '.zshrc') }
+    let(:zsh_file)    { File.join(tmpdir, '.zsh_legionio') }
+    let(:packs_dir)   { File.join(tmpdir, '.legionio', '.packs') }
 
     before do
       allow(File).to receive(:expand_path).with('~/.codex').and_return(codex_dir)
       allow(File).to receive(:expand_path).with('~/.codex/config.toml').and_return(codex_path)
       allow(File).to receive(:expand_path).with('~/.claude').and_return(claude_dir)
       allow(File).to receive(:expand_path).with('~/.claude/settings.json').and_return(claude_path)
+      allow(File).to receive(:expand_path).with('~/.zshrc').and_return(zshrc_path)
+      allow(File).to receive(:expand_path).with('~/.zsh_legionio').and_return(zsh_file)
+      allow(File).to receive(:expand_path).with('~/.legionio/.packs').and_return(packs_dir)
+      allow(File).to receive(:expand_path).with('~/.legionio/settings/packs.json').and_return(File.join(tmpdir, '.legionio', 'settings', 'packs.json'))
+      allow(File).to receive(:expand_path).with('~/.legionio/.packs/proxy-mode').and_return(File.join(packs_dir, 'proxy-mode'))
     end
 
-    it 'creates ~/.codex/config.toml with legion proxy config' do
+    it 'creates ~/.codex/config.toml pointing at the legionio profile' do
       capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
       expect(File.exist?(codex_path)).to be true
 
       content = File.read(codex_path)
+      expect(content).to include('profile = "legionio"')
+    end
+
+    it 'creates ~/.codex/legionio.config.toml with provider config' do
+      capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+      profile_path = File.join(codex_dir, 'legionio.config.toml')
+      expect(File.exist?(profile_path)).to be true
+
+      content = File.read(profile_path)
       expect(content).to include('model = "legionio"')
-      expect(content).to include('model_provider = "legion"')
+      expect(content).to include('model_provider = "legionio"')
       expect(content).to include('base_url = "http://localhost:4567/v1"')
       expect(content).to include('wire_api = "responses"')
       expect(content).to include('env_key = "LEGION_API_KEY"')
+      expect(content).to include('model_catalog_json')
     end
 
-    it 'creates ~/.claude/settings.json with proxy env vars' do
+    it 'creates ~/.codex/legionio-catalog.json with legionio model entry' do
       capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
-      expect(File.exist?(claude_path)).to be true
+      catalog_path = File.join(codex_dir, 'legionio-catalog.json')
+      expect(File.exist?(catalog_path)).to be true
 
-      data = JSON.parse(File.read(claude_path))
-      env = data['env']
-      expect(env['ANTHROPIC_BASE_URL']).to eq('http://localhost:4567')
-      expect(env['ANTHROPIC_API_KEY']).to eq('legion')
-      expect(env['ANTHROPIC_AUTH_TOKEN']).to eq('legion')
-      expect(env['ANTHROPIC_DEFAULT_OPUS_MODEL']).to eq('legionio')
-      expect(env['ANTHROPIC_DEFAULT_SONNET_MODEL']).to eq('legionio')
-      expect(env['ANTHROPIC_DEFAULT_HAIKU_MODEL']).to eq('legionio')
+      catalog = JSON.parse(File.read(catalog_path))
+      model = catalog['models'].first
+      expect(model['id']).to eq('legionio')
+      expect(model['context_size']).to eq(262_144)
+      expect(model['context_window']).to eq(262_144)
     end
 
-    it 'preserves existing Claude Code settings when merging env' do
-      FileUtils.mkdir_p(File.dirname(claude_path))
-      File.write(claude_path, JSON.pretty_generate({
-                                                     'mcpServers' => { 'legion' => { 'command' => 'legionio', 'args' => %w[mcp stdio] } },
-                                                     'env'        => { 'EXISTING_VAR' => 'preserve' }
-                                                   }))
-
+    it 'does not write ~/.claude/settings.json' do
       capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
-      data = JSON.parse(File.read(claude_path))
-      expect(data.dig('mcpServers', 'legion', 'command')).to eq('legionio')
-      expect(data.dig('env', 'EXISTING_VAR')).to eq('preserve')
-      expect(data.dig('env', 'ANTHROPIC_BASE_URL')).to eq('http://localhost:4567')
+      expect(File.exist?(claude_path)).to be false
     end
 
-    it 'skips codex config when file exists without --force' do
+    it 'injects profile into existing config.toml without destroying its content' do
       FileUtils.mkdir_p(File.dirname(codex_path))
-      File.write(codex_path, 'existing content')
+      File.write(codex_path, "[model_providers.openai]\napi_key = \"sk-existing\"\n")
 
-      output = capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
-      expect(output).to include('Skipped')
+      capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+      content = File.read(codex_path)
+      expect(content).to include('profile = "legionio"')
+      expect(content).to include('api_key = "sk-existing"')
+    end
+
+    it 'does not duplicate profile line when config.toml already has it' do
+      FileUtils.mkdir_p(File.dirname(codex_path))
+      File.write(codex_path, "profile = \"legionio\"\n")
+
+      capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+      content = File.read(codex_path)
+      expect(content.scan('profile = "legionio"').size).to eq(1)
     end
 
     it 'overwrites when --force is passed' do
@@ -474,13 +492,11 @@ RSpec.describe Legion::CLI::Setup do
 
     it 'accepts --port and --host options' do
       capture_stdout { described_class.start(%w[proxy-mode --host 0.0.0.0 --port 9292 --no-color]) }
-      expect(File.exist?(codex_path)).to be true
+      profile_path = File.join(codex_dir, 'legionio.config.toml')
+      expect(File.exist?(profile_path)).to be true
 
-      content = File.read(codex_path)
+      content = File.read(profile_path)
       expect(content).to include('base_url = "http://0.0.0.0:9292/v1"')
-
-      claude_data = JSON.parse(File.read(claude_path))
-      expect(claude_data['env']['ANTHROPIC_BASE_URL']).to eq('http://0.0.0.0:9292')
     end
 
     it 'outputs JSON when --json is passed' do
@@ -494,6 +510,56 @@ RSpec.describe Legion::CLI::Setup do
     it 'registers the proxy command' do
       commands = described_class.all_commands.keys
       expect(commands).to include('proxy_mode')
+    end
+
+    context 'zsh shell functions' do
+      it 'skips zsh setup when ~/.zshrc does not exist' do
+        capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+        expect(File.exist?(zsh_file)).to be false
+      end
+
+      context 'when ~/.zshrc exists' do
+        before { File.write(zshrc_path, "# existing zshrc\n") }
+
+        it 'writes ~/.zsh_legionio with claude-legionio and codex-legionio functions' do
+          capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+          expect(File.exist?(zsh_file)).to be true
+          content = File.read(zsh_file)
+          expect(content).to include('claude-legionio()')
+          expect(content).to include('codex-legionio()')
+          expect(content).to include('ANTHROPIC_BASE_URL=http://localhost:4567')
+          expect(content).to include('CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1')
+          expect(content).to include('unset ANTHROPIC_DEFAULT_OPUS_MODEL')
+          expect(content).to include('unset ANTHROPIC_DEFAULT_SONNET_MODEL')
+          expect(content).to include('unset ANTHROPIC_DEFAULT_HAIKU_MODEL')
+          expect(content).to include('claude --model legionio')
+          expect(content).to include('codex --provider legionio')
+        end
+
+        it 'appends source line to ~/.zshrc' do
+          capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+          zshrc = File.read(zshrc_path)
+          expect(zshrc).to include('[ -f ~/.zsh_legionio ] && source ~/.zsh_legionio')
+        end
+
+        it 'does not duplicate source line when run twice' do
+          2.times { capture_stdout { described_class.start(%w[proxy-mode --no-color]) } }
+          zshrc = File.read(zshrc_path)
+          expect(zshrc.scan('source ~/.zsh_legionio').size).to eq(1)
+        end
+
+        it 'replaces ~/.zsh_legionio on re-run (always overwrite)' do
+          File.write(zsh_file, "# old content\n")
+          capture_stdout { described_class.start(%w[proxy-mode --no-color]) }
+          expect(File.read(zsh_file)).to include('claude-legionio()')
+          expect(File.read(zsh_file)).not_to include('# old content')
+        end
+
+        it 'uses --host and --port in the generated functions' do
+          capture_stdout { described_class.start(%w[proxy-mode --host 10.0.0.1 --port 9000 --no-color]) }
+          expect(File.read(zsh_file)).to include('ANTHROPIC_BASE_URL=http://10.0.0.1:9000')
+        end
+      end
     end
   end
 end

@@ -72,7 +72,7 @@ module Legion
         )
         Legion::Logging.error "[TraceSearch] LLM filter generation failed for query: #{query.inspect}" if !result[:valid] && defined?(Legion::Logging)
         result[:data] if result[:valid]
-      rescue Legion::LLM::LLMError => e
+      rescue StandardError => e
         handle_exception(e, level: :debug, handled: true, operation: 'trace_search.generate_filter') if respond_to?(:handle_exception)
         nil
       end

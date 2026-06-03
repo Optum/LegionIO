@@ -20,10 +20,6 @@ RSpec.describe Legion::Extensions::Builder::Routes do
       def lex_class
         'Lex::TestLex'
       end
-
-      def settings
-        {}
-      end
     end.new
   end
 
@@ -57,6 +53,7 @@ RSpec.describe Legion::Extensions::Builder::Routes do
   end
 
   before do
+    allow(Legion::Settings).to receive(:dig).and_return(nil)
     allow(Legion::Settings).to receive(:dig).with(:api, :lex_routes).and_return(nil)
   end
 
