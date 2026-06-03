@@ -1,5 +1,12 @@
 # Legion Changelog
 
+## [1.9.41] - 2026-06-02
+
+### Fixed
+- CLI: `setup proxy-mode` now upserts `[model_providers.legionio]` with `api_key = "legion"` into `~/.codex/config.toml` instead of writing the deprecated `profile = "legionio"` key (removed by Codex)
+- CLI: model catalog format corrected to use `slug`/`display_name`/`supported_reasoning_levels` fields
+- CLI: `model_catalog_json` removed from top-level `config.toml` (breaks Mac app strict schema parsing); kept only in `legionio.config.toml` for `--profile legionio` CLI use
+
 ## [1.9.40] - 2026-06-01
 
 ### Added
