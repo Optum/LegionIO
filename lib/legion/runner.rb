@@ -107,7 +107,7 @@ module Legion
       ext_idx = parts.index('Extensions')
       return parts.last.downcase unless ext_idx && parts[ext_idx + 1]
 
-      parts[ext_idx + 1].gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
+      parts[ext_idx + 1].gsub(/([A-Z]++)([A-Z][a-z])/, '\1_\2')
                         .gsub(/([a-z\d])([A-Z])/, '\1_\2')
                         .downcase
     end
