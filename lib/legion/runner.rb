@@ -8,7 +8,7 @@ require 'legion/transport/messages/check_subtask'
 
 module Legion
   module Runner
-    def self.run(runner_class:, function:, task_id: nil, args: nil, check_subtask: true, generate_task: true, parent_id: nil, master_id: nil, catch_exceptions: false, **opts) # rubocop:disable Layout/LineLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/ParameterLists, Metrics/MethodLength, Metrics/PerceivedComplexity
+    def self.run(runner_class:, function:, task_id: nil, args: nil, check_subtask: true, generate_task: true, parent_id: nil, master_id: nil, catch_exceptions: false, **opts) # rubocop:disable Layout/LineLength, Metrics/CyclomaticComplexity, Metrics/ParameterLists, Metrics/MethodLength, Metrics/PerceivedComplexity
       started_at = ::Process.clock_gettime(::Process::CLOCK_MONOTONIC)
       lex_tag = derive_lex_tag(runner_class)
       rlog = runner_logger(lex_tag)

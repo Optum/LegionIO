@@ -54,7 +54,7 @@ module Legion
 
       attr_reader :local_tasks
 
-      def shutdown # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/AbcSize
+      def shutdown # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
         return nil if @loaded_extensions.nil?
 
         deadline = Legion::Settings.dig(:extensions, :shutdown_timeout) || 15
