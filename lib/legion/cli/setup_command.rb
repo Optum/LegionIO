@@ -555,11 +555,11 @@ module Legion
           data['packs'] = packs.sort
           FileUtils.mkdir_p(File.dirname(settings_file))
           File.write(settings_file, ::JSON.pretty_generate(data))
-        rescue StandardError => e
-          Legion::Logging.warn("Could not update packs setting: #{e.message}") if defined?(Legion::Logging)
         rescue ::JSON::ParserError
           data = { 'packs' => [pack_name.to_s] }
           File.write(settings_file, ::JSON.pretty_generate(data))
+        rescue StandardError => e
+          Legion::Logging.warn("Could not update packs setting: #{e.message}") if defined?(Legion::Logging)
         end
 
         def suggest_next_steps(out, pack_name)
