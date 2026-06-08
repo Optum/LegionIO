@@ -418,6 +418,13 @@ module Legion
         Legion::API.use Legion::Rbac::Middleware
       end
 
+      # Mount in-process code reloader for rapid dev/E2E iteration.
+      # Watches lib/ paths and re-requires changed files on each request,
+      # so you get fresh code without tearing down AMQP subscriptions / transport.
+      #
+      # Enable with: LEGION_DEV_RELOAD=true ./exe/legionio
+      setup_dev_reloader if ENV['LEGION_DEV_RELOAD'] == 'true'
+
       @api_thread = Thread.new do
         retries = 0
         max_retries = api_settings[:bind_retries]
@@ -583,12 +590,6 @@ module Legion
       Legion::Identity::Process.bind_fallback! if defined?(Legion::Identity::Process) && !Legion::Identity::Process.resolved?
     ensure
       Legion::Readiness.mark_ready(:identity)
-      begin
-        Legion::Extensions.flush_pending_registrations! if defined?(Legion::Extensions) &&
-                                                           Legion::Extensions.respond_to?(:flush_pending_registrations!)
-      rescue StandardError => e
-        handle_exception(e, level: :warn, operation: 'service.setup_identity.flush_pending_registrations')
-      end
     end
 
     def setup_logging_transport # rubocop:disable Metrics/CyclomaticComplexity,Metrics/MethodLength,Metrics/PerceivedComplexity
@@ -1253,6 +1254,39 @@ module Legion
         central_config:           apm.fetch(:central_config, true),
         span_frames_min_duration: apm[:span_frames_min_duration]
       }.compact
+    end
+
+    # Mount Rack::Unreloader to watch lib/ directories for changes.
+    # On each request, re-requires any .rb files whose mtime has changed.
+    # Keeps AMQP subscriptions / transport / cache alive across code edits.
+    #
+    # Enable with: LEGION_DEV_RELOAD=true ./exe/legionio
+    def setup_dev_reloader # rubocop:disable Metrics/MethodLength
+      return unless defined?(Rack::Unreloader)
+
+      base = File.expand_path('../../..', __dir__)
+      watched = [File.expand_path('../lib', __dir__)]
+
+      # Watch all sibling legion-* / lex-* gem lib/ directories
+      [
+        'legion-llm',
+        'legion-apollo',
+        'legion-gaia',
+        'legion-mcp',
+        'legion-data',
+        'legion-logging',
+        'legion-settings',
+        'legion-tty',
+        'extensions-ai/lex-llm',
+        'extensions-ai/lex-llm-ledger'
+      ].each do |gem_name|
+        path = File.expand_path(gem_name, base)
+        watched << File.join(path, 'lib') if Dir.exist?(path)
+      end
+
+      watched.uniq!
+      Legion::API.use Rack::Unreloader, unreload: watched, logger: Legion::Logging
+      log.info "[Dev Reloader] watching #{watched.size} directories: #{watched.join(', ')}"
     end
 
     def ssl_server_settings(tls_cfg, bind, port)
