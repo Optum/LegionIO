@@ -41,16 +41,16 @@ RSpec.describe Legion::CLI::Chat::Tools::Reflect do
 
       before do
         llm = Module.new do
-          def self.chat_direct(**); end
+          def self.chat(**); end
 
           def self.respond_to?(method, *args)
-            return true if method == :chat_direct
+            return true if method == :chat
 
             super
           end
         end
         stub_const('Legion::LLM', llm)
-        allow(llm).to receive(:chat_direct).and_return(llm_response)
+        allow(llm).to receive(:chat).and_return(llm_response)
 
         allow(stub_http).to receive(:request).and_return(success_response)
         allow(success_response).to receive(:is_a?).with(Net::HTTPSuccess).and_return(true)
@@ -96,16 +96,16 @@ RSpec.describe Legion::CLI::Chat::Tools::Reflect do
 
       before do
         llm = Module.new do
-          def self.chat_direct(**); end
+          def self.chat(**); end
 
           def self.respond_to?(method, *args)
-            return true if method == :chat_direct
+            return true if method == :chat
 
             super
           end
         end
         stub_const('Legion::LLM', llm)
-        allow(llm).to receive(:chat_direct).and_return(llm_response)
+        allow(llm).to receive(:chat).and_return(llm_response)
       end
 
       it 'returns no actionable knowledge message' do

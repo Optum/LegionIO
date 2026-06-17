@@ -163,7 +163,7 @@ end
 
 MANIFEST_DIR = '/tmp/legion_migration_manifests'
 
-# rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity, Metrics/ParameterLists
+# rubocop:disable Metrics/AbcSize, Metrics/MethodLength, Metrics/ParameterLists
 def migrate_table(local_db, prod_db, table, id_map_out, log:, dry_run:, fk_maps: {}, identity_maps: {})
   count = local_db[table].count
   if count.zero?
@@ -274,7 +274,7 @@ def migrate_table(local_db, prod_db, table, id_map_out, log:, dry_run:, fk_maps:
   log.info "  #{table}: manifest → #{manifest_path}"
   log.info "  #{table}: IDs → #{ids_path}"
 end
-# rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity, Metrics/ParameterLists
+# rubocop:enable Metrics/AbcSize, Metrics/MethodLength, Metrics/ParameterLists
 
 identity_maps = { principals: principal_id_map, identities: identity_id_map }
 

@@ -48,10 +48,10 @@ RSpec.describe 'Chat away summary' do
     it 'does nothing when session has fewer than 2 messages' do
       stub_const('Legion::LLM', Module.new do
         def self.respond_to?(name, *)
-          name == :chat_direct ? true : super
+          name == :chat ? true : super
         end
 
-        def self.chat_direct(**) = nil
+        def self.chat(**) = nil
       end)
 
       mock_messages = [double(role: 'user', content: 'hello')]
@@ -66,10 +66,10 @@ RSpec.describe 'Chat away summary' do
     it 'does not raise on LLM errors' do
       stub_const('Legion::LLM', Module.new do
         def self.respond_to?(name, *)
-          name == :chat_direct ? true : super
+          name == :chat ? true : super
         end
 
-        def self.chat_direct(**)
+        def self.chat(**)
           raise StandardError, 'provider unavailable'
         end
       end)

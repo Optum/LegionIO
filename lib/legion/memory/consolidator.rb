@@ -161,7 +161,7 @@ module Legion
         end
 
         def llm_available?
-          defined?(Legion::LLM) && Legion::LLM.respond_to?(:chat_direct)
+          defined?(Legion::LLM) && Legion::LLM.respond_to?(:chat)
         end
 
         def extract_insights_via_llm(transcripts, existing_memory)
@@ -186,14 +186,26 @@ module Legion
             Respond with ONLY the JSON array, no other text.
           PROMPT
 
-          session = Legion::LLM.chat_direct(model: nil, provider: nil)
-          response = session.ask(prompt)
-          content = response.respond_to?(:content) ? response.content : response.to_s
+          response = Legion::LLM.chat(
+            message: prompt,
+            caller:  { requested_by: { type: :system, identity: 'legion:internal:memory:consolidator' } }
+          )
+          content = extract_response_content(response)
 
           parse_insights(content)
         rescue StandardError => e
           Legion::Logging.warn "[Consolidator] LLM extraction failed: #{e.message}" if defined?(Legion::Logging)
           []
+        end
+
+        def extract_response_content(response)
+          if response.is_a?(Hash)
+            (response[:response] || response[:content] || response['response'] || response['content']).to_s
+          elsif response.respond_to?(:content)
+            response.content.to_s
+          else
+            response.to_s
+          end
         end
 
         def parse_insights(text)

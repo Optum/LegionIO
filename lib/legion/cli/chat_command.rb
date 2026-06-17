@@ -243,7 +243,7 @@ module Legion
         end
 
         def show_away_summary(out)
-          return unless defined?(Legion::LLM) && Legion::LLM.respond_to?(:chat_direct)
+          return unless defined?(Legion::LLM) && Legion::LLM.respond_to?(:chat)
 
           messages = @session.chat.messages.last(30).select { |m| m.respond_to?(:role) }
           return if messages.length < 2
@@ -256,12 +256,10 @@ module Legion
                    'Focus on: what task was in progress, what was accomplished, what needs attention next. ' \
                    "Skip status reports and commit recaps.\n\nRecent conversation:\n#{summary_input}"
 
-          response = if Legion::LLM.respond_to?(:ask_direct)
-                       Legion::LLM.ask_direct(message: prompt, model: nil, provider: nil)
-                     else
-                       session = Legion::LLM.chat_direct(model: nil, provider: nil)
-                       session.ask(prompt)
-                     end
+          response = Legion::LLM.chat(
+            message: prompt,
+            caller:  { requested_by: { type: :system, identity: 'legion:internal:cli:away_summary' } }
+          )
 
           text = if response.is_a?(Hash)
                    response[:response] || response[:content]

@@ -66,13 +66,25 @@ module Legion
           end
 
           def self.consolidate_entries(entries)
-            return nil unless defined?(Legion::LLM) && Legion::LLM.respond_to?(:chat_direct)
+            return nil unless defined?(Legion::LLM) && Legion::LLM.respond_to?(:chat)
 
             numbered = entries.map.with_index(1) { |e, i| "#{i}. #{e}" }.join("\n")
 
-            session = Legion::LLM.chat_direct(model: nil, provider: nil)
-            response = session.ask("#{CONSOLIDATION_PROMPT}\n\nCurrent entries:\n#{numbered}")
-            response.content
+            response = Legion::LLM.chat(
+              message: "#{CONSOLIDATION_PROMPT}\n\nCurrent entries:\n#{numbered}",
+              caller:  { requested_by: { type: :system, identity: 'legion:internal:cli:consolidate_memory' } }
+            )
+            extract_response_content(response)
+          end
+
+          def self.extract_response_content(response)
+            if response.is_a?(Hash)
+              (response[:response] || response[:content] || response['response'] || response['content']).to_s
+            elsif response.respond_to?(:content)
+              response.content.to_s
+            else
+              response.to_s
+            end
           end
 
           def self.parse_consolidated(text)

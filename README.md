@@ -1,26 +1,61 @@
-# LegionIO
+<h1 align="center">LegionIO</h1>
 
-**An extensible async job engine, AI coding assistant, and cognitive computing platform for Ruby.**
+<p align="center">
+  <b>One Ruby gem that is a distributed async job engine, an AI coding assistant, an MCP server,
+  and a cognitive-computing platform — and runs with zero required infrastructure.</b>
+</p>
 
-Schedule tasks, chain services into dependency graphs, run them concurrently via RabbitMQ, and orchestrate AI-powered workflows — from a single `legion` command.
+<p align="center">
+  <a href="https://rubygems.org/gems/legionio"><img alt="Gem Version" src="https://img.shields.io/gem/v/legionio.svg"></a>
+  <img alt="Ruby" src="https://img.shields.io/badge/ruby-%3E%3D%203.4-CC342D.svg">
+  <img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg">
+  <img alt="HA" src="https://img.shields.io/badge/HA-no%20paid%20tiers%20·%20no%20feature%20gates-success.svg">
+</p>
 
 ```
          ╭──────────────────────────────────────╮
          │           L E G I O N I O            │
          │                                      │
-         │   280+ extensions  ·  60 MCP tools   │
-         │   AI chat CLI  ·  REST API  ·  HA    │
-         │   cognitive architecture  ·  Vault    │
+         │   async jobs  ·  AI chat  ·  MCP     │
+         │   REST API  ·  HA  ·  cognitive AI   │
+         │   zero-infra lite mode  ·  Vault     │
          ╰──────────────────────────────────────╯
 ```
 
-[![Gem Version](https://img.shields.io/gem/v/legionio.svg)](https://rubygems.org/gems/legionio)
-[![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.4-red.svg)](https://www.ruby-lang.org/)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+> Schedule tasks, chain services into dependency graphs, run them concurrently across a RabbitMQ
+> fleet, and orchestrate AI-powered workflows — from a single `legion` command. Then run the whole
+> thing with **no RabbitMQ, no Redis, nothing** via lite mode.
 
-**Ruby >= 3.4** | **v1.9.18** | **Apache-2.0** | [@Esity](https://github.com/Esity)
+## Why LegionIO
 
----
+- 🧩 **Four products in one gem.** A RabbitMQ-backed async **job engine**, an **AI coding assistant** (chat, commit, review, PR, multi-agent), an **MCP server** that exposes your infrastructure to any agent, and a brain-modeled **cognitive platform** — all in one `gem install`.
+- 🪶 **Zero-infrastructure lite mode.** `LEGION_MODE=lite` swaps RabbitMQ for in-process pub/sub and Redis/Memcached for an in-memory cache. Every feature still works — `gem install` to a running daemon in seconds, no services to stand up.
+- 🔗 **Dependency-graph orchestration.** Chain tasks with JSON conditions and ERB transformations, fan out in parallel, and scale by simply launching more processes — RabbitMQ distributes the work automatically (tested to 100+ workers).
+- 🤖 **AI workflows built in.** `legion chat`, `commit`, `review`, `pr`, multi-agent `swarm`, persistent cross-session memory, and a shared knowledge store — powered by [legion-llm](https://github.com/LegionIO/legion-llm)'s any-client → any-provider routing.
+- 🧠 **Cognitive architecture.** 240+ brain-modeled extensions across 18 domains (emotion, reasoning, social, metacognition…), coordinated by a tick-cycle scheduler ([legion-gaia](https://github.com/LegionIO/legion-gaia)).
+- 🔌 **MCP-native.** Exposes itself as an MCP server (stdio or streamable HTTP), so Claude Desktop or any agent SDK can run tasks, manage extensions, and query your infrastructure directly.
+- 🛡️ **Operational from day one.** Vault secrets, AES-256 message encryption, RBAC, JWT / API-key auth, sliding-window rate limiting, Prometheus metrics, an OpenAPI 3.1 spec, and live `SIGHUP` reload. **No paid tiers, no feature gates, full HA out of the box.**
+
+## The Legion Ecosystem
+
+LegionIO is the orchestrator; the heavy lifting lives in a family of focused, independently-versioned gems. Here's the one-line version — follow a link to dig in:
+
+| Gem | What it is |
+|-----|-----------|
+| [legion-llm](https://github.com/LegionIO/legion-llm) | Universal LLM proxy — any client dialect → any provider, with routing, escalation, and metering |
+| [legion-gaia](https://github.com/LegionIO/legion-gaia) | Cognitive coordination layer — tick-cycle scheduler + weighted routing across cognitive modules |
+| [legion-apollo](https://github.com/LegionIO/legion-apollo) | Shared + local knowledge store — RAG retrieval, embeddings, and a knowledge graph |
+| [legion-data](https://github.com/LegionIO/legion-data) | Persistence — task history, scheduling, and chains over SQLite / PostgreSQL / MySQL |
+| [legion-transport](https://github.com/LegionIO/legion-transport) | Messaging abstraction — RabbitMQ AMQP plus the in-process lite adapter |
+| [legion-cache](https://github.com/LegionIO/legion-cache) | Caching abstraction — Redis / Memcached plus the in-memory lite adapter |
+| [legion-crypt](https://github.com/LegionIO/legion-crypt) | Secrets & encryption — Vault integration, AES-256, JWT auth |
+| [legion-rbac](https://github.com/LegionIO/legion-rbac) | Role-based access control with Vault-style flat policies |
+| [legion-mcp](https://github.com/LegionIO/legion-mcp) | Model Context Protocol server/client implementation |
+| [legion-settings](https://github.com/LegionIO/legion-settings) | Layered configuration + secret resolution (`vault://`, `env://`) |
+| [legion-logging](https://github.com/LegionIO/legion-logging) | Structured logging used across every gem |
+| [legion-tty](https://github.com/LegionIO/legion-tty) | Terminal UI components — spinners, tables, prompts |
+
+Capabilities (`lex-*` extensions) are a separate, much larger catalog — see [Extensions](#extensions) below.
 
 ## What Does It Do?
 
@@ -507,11 +542,11 @@ CMD ruby --yjit $(which legion) start
 
 ## Architecture
 
-Before any Legion code loads, the executable applies three performance optimizations:
+Before any Legion code loads, the executable applies performance optimizations:
 
 - **YJIT** — `RubyVM::YJIT.enable` for 15-30% runtime throughput (Ruby 3.1+ builds)
 - **GC tuning** — pre-allocates 600k heap slots and raises malloc limits (ENV overrides respected)
-- **bootsnap** — caches YARV bytecodes and `$LOAD_PATH` resolution at `~/.legionio/cache/bootsnap/`
+- **bootsnap** *(opt-in)* — set `LEGION_BOOTSNAP=true` to cache YARV bytecode and `$LOAD_PATH` resolution at `~/.legionio/cache/bootsnap/`
 
 ```
 legion start

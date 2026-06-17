@@ -14,7 +14,8 @@ Primary gem. Orchestrates all `legion-*` gems and loads LEX extensions.
 
 ## Boot Sequence
 
-`exe/legion` applies: YJIT, GC tuning (600k heap slots), bootsnap cache.
+Executables enable YJIT + GC tuning (600k heap slots). Bootsnap is **opt-in** —
+set `LEGION_BOOTSNAP=true` (it is no longer applied unconditionally).
 
 ```
 Legion.start → Legion::Service.new
@@ -79,6 +80,24 @@ Legion
 │   └── Chat       # Interactive AI REPL (sessions, tools, memory, agents, skills)
 └── Graph          # Task relationship visualization (Mermaid/DOT)
 ```
+
+## Where Things Live (most-touched)
+
+| Path | Purpose |
+|------|---------|
+| `lib/legion.rb` | Entry: `Legion.start`, `.shutdown`, `.reload` |
+| `lib/legion/service.rb` | 15-phase startup orchestrator |
+| `lib/legion/cli.rb` + `lib/legion/cli/` | Thor CLI — two binaries, 40+ subcommands |
+| `lib/legion/cli/chat/` | Interactive AI REPL (sessions, tools, agents, memory, skills) |
+| `lib/legion/api.rb` + `lib/legion/api/` | Sinatra REST API + middleware (Auth, Tenant, RateLimit, BodyLimit) |
+| `lib/legion/extensions/` | LEX discovery, loading, actors, builders |
+| `lib/legion/tools/` | Canonical tool layer (Registry, Discovery, EmbeddingCache) |
+| `lib/legion/digital_worker/` | AI-as-labor governance (Lifecycle, RiskTier, ValueMetrics) |
+| `exe/legion`, `exe/legionio` | The two binaries; perf opts (YJIT/GC, opt-in bootsnap) applied here |
+| `spec/` | RSpec suite (~3500+ examples) |
+
+LLM HTTP routes are **owned by `legion-llm`** and mounted from it — LegionIO no longer
+defines its own LLM routes or a provider gateway fallback.
 
 ## Lite Mode
 

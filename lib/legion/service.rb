@@ -361,7 +361,7 @@ module Legion
       handle_exception(e, level: :warn, operation: 'service.shutdown_apm')
     end
 
-    def setup_api # rubocop:disable Metrics/MethodLength,Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+    def setup_api
       if @api_thread&.alive?
         log.warn 'API already running, skipping duplicate setup_api call'
         return
@@ -537,7 +537,7 @@ module Legion
       log.info 'Legion::Transport connected'
     end
 
-    def setup_identity # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+    def setup_identity
       require_relative 'identity/process'
       require_relative 'identity/broker'
       require_relative 'identity/lease'
@@ -583,15 +583,9 @@ module Legion
       Legion::Identity::Process.bind_fallback! if defined?(Legion::Identity::Process) && !Legion::Identity::Process.resolved?
     ensure
       Legion::Readiness.mark_ready(:identity)
-      begin
-        Legion::Extensions.flush_pending_registrations! if defined?(Legion::Extensions) &&
-                                                           Legion::Extensions.respond_to?(:flush_pending_registrations!)
-      rescue StandardError => e
-        handle_exception(e, level: :warn, operation: 'service.setup_identity.flush_pending_registrations')
-      end
     end
 
-    def setup_logging_transport # rubocop:disable Metrics/CyclomaticComplexity,Metrics/MethodLength,Metrics/PerceivedComplexity
+    def setup_logging_transport
       return unless defined?(Legion::Transport::Connection)
       return unless Legion::Transport::Connection.session_open?
 
@@ -779,7 +773,7 @@ module Legion
       handle_exception(e, level: :warn, operation: 'service.shutdown_api')
     end
 
-    def shutdown # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/AbcSize, Metrics/MethodLength
+    def shutdown
       log.info('Legion::Service.shutdown was called')
       @shutdown = true
       Legion::Settings[:client][:shutting_down] = true
