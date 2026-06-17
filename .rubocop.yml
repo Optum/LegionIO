@@ -93,16 +93,12 @@ Metrics/PerceivedComplexity:
 
 Style/Documentation:
   Enabled: false
-
 Style/SymbolArray:
   Enabled: true
-
 Style/FrozenStringLiteralComment:
   Enabled: true
   EnforcedStyle: always
-
 Naming/FileName:
   Enabled: false
-
 Naming/PredicateMethod:
   Enabled: false
