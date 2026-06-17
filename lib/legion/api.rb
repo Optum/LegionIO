@@ -34,7 +34,6 @@ require_relative 'api/auth_saml'
 require_relative 'api/capacity'
 require_relative 'api/audit'
 require_relative 'api/metrics'
-require_relative 'api/llm'
 require_relative 'api/skills'
 require_relative 'api/catalog'
 require_relative 'api/org_chart'
@@ -201,7 +200,6 @@ module Legion
     register Routes::Capacity
     register Routes::Audit
     register Routes::Metrics
-    mount_library_routes('llm', Routes::Llm, 'Legion::LLM::Routes')
     register Routes::Skills
     register Routes::ExtensionCatalog
     register Routes::OrgChart
@@ -209,6 +207,9 @@ module Legion
     register Routes::Acp
     register Routes::Prompts
     register Routes::Marketplace
+    # Legion::LLM routes are registered directly from legion-llm.
+    # setup_llm runs before setup_api so Legion::LLM is always defined when this loads.
+    mount_library_routes('llm', Legion::LLM::API, 'Legion::LLM::Routes') if defined?(Legion::LLM::API)
     mount_library_routes('apollo', Routes::Apollo, 'Legion::Apollo::Routes')
     register Routes::Costs
     register Routes::Traces

@@ -60,13 +60,23 @@ module Legion
           def self.extract_entries(text)
             return [text] unless llm_available?
 
-            response = Legion::LLM.chat_direct(
+            response = Legion::LLM.chat(
               message: "#{EXTRACTION_PROMPT}\n\nText:\n#{text}",
-              model: nil, provider: nil
+              caller:  { requested_by: { type: :system, identity: 'legion:internal:cli:reflect' } }
             )
-            parse_entries(response.content)
+            parse_entries(extract_response_content(response))
           rescue StandardError
             [text]
+          end
+
+          def self.extract_response_content(response)
+            if response.is_a?(Hash)
+              (response[:response] || response[:content] || response['response'] || response['content']).to_s
+            elsif response.respond_to?(:content)
+              response.content.to_s
+            else
+              response.to_s
+            end
           end
 
           def self.parse_entries(content)
@@ -124,7 +134,7 @@ module Legion
           end
 
           def self.llm_available?
-            defined?(Legion::LLM) && Legion::LLM.respond_to?(:chat_direct)
+            defined?(Legion::LLM) && Legion::LLM.respond_to?(:chat)
           end
 
           def self.api_port

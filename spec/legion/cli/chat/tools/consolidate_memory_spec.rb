@@ -39,12 +39,10 @@ RSpec.describe Legion::CLI::Chat::Tools::ConsolidateMemory do
 
       fake_response = double('LLMResponse',
                              content: "- Ruby uses AMQP for messaging\n- Extension system is called LEX (Legion Extension)\n")
-      fake_session = double('ChatSession')
-      allow(fake_session).to receive(:ask).and_return(fake_response)
 
       llm_mod = Module.new
       stub_const('Legion::LLM', llm_mod)
-      allow(Legion::LLM).to receive(:chat_direct).and_return(fake_session)
+      allow(Legion::LLM).to receive(:chat).and_return(fake_response)
 
       result = tool.call(scope: 'project')
       expect(result).to include('4 -> 2')
@@ -56,12 +54,10 @@ RSpec.describe Legion::CLI::Chat::Tools::ConsolidateMemory do
       allow(Legion::CLI::Chat::MemoryStore).to receive(:list).and_return(entries)
 
       fake_response = double('LLMResponse', content: "- combined entry\n- entry3\n")
-      fake_session = double('ChatSession')
-      allow(fake_session).to receive(:ask).and_return(fake_response)
 
       llm_mod = Module.new
       stub_const('Legion::LLM', llm_mod)
-      allow(Legion::LLM).to receive(:chat_direct).and_return(fake_session)
+      allow(Legion::LLM).to receive(:chat).and_return(fake_response)
 
       result = tool.call(scope: 'project', dry_run: 'true')
       expect(result).to include('Preview')
@@ -82,12 +78,10 @@ RSpec.describe Legion::CLI::Chat::Tools::ConsolidateMemory do
       allow(Legion::CLI::Chat::MemoryStore).to receive(:list).with(scope: :global).and_return(entries)
 
       fake_response = double('LLMResponse', content: "- global combined\n")
-      fake_session = double('ChatSession')
-      allow(fake_session).to receive(:ask).and_return(fake_response)
 
       llm_mod = Module.new
       stub_const('Legion::LLM', llm_mod)
-      allow(Legion::LLM).to receive(:chat_direct).and_return(fake_session)
+      allow(Legion::LLM).to receive(:chat).and_return(fake_response)
 
       result = tool.call(scope: 'global')
       expect(result).to include('global memory')
@@ -99,12 +93,10 @@ RSpec.describe Legion::CLI::Chat::Tools::ConsolidateMemory do
       allow(Legion::CLI::Chat::MemoryStore).to receive(:list).and_return(entries)
 
       fake_response = double('LLMResponse', content: "- consolidated entry\n")
-      fake_session = double('ChatSession')
-      allow(fake_session).to receive(:ask).and_return(fake_response)
 
       llm_mod = Module.new
       stub_const('Legion::LLM', llm_mod)
-      allow(Legion::LLM).to receive(:chat_direct).and_return(fake_session)
+      allow(Legion::LLM).to receive(:chat).and_return(fake_response)
 
       tool.call(scope: 'project')
 
