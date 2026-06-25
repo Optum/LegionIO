@@ -1,47 +1,47 @@
+# frozen_string_literal: true
+
 module Legion
   module Runner
     module Status
-      def self.update(task_id:, status: 'task.completed', **opts)
-        Legion::Logging.debug "Legion::Runner::Status.update called, #{task_id}, status: #{status}, #{opts}"
+      def self.update(task_id:, status: 'task.completed', **)
+        Legion::Logging.debug "[Status] transition task_id=#{task_id} -> #{status}" if defined?(Legion::Logging)
         return if status.nil?
 
         if Legion::Settings[:data][:connected]
-          update_db(task_id: task_id, status: status, **opts)
+          update_db(task_id: task_id, status: status, **)
         else
-          update_rmq(task_id: task_id, status: status, **opts)
+          update_rmq(task_id: task_id, status: status, **)
         end
       end
 
-      def self.update_rmq(task_id:, status: 'task.completed', **opts)
+      def self.update_rmq(task_id:, status: 'task.completed', **)
         return if status.nil?
 
-        Legion::Transport::Messages::TaskUpdate.new(task_id: task_id, status: status, **opts).publish
+        retries = 0
+        Legion::Transport::Messages::TaskUpdate.new(task_id: task_id, status: status, **).publish
       rescue StandardError => e
-        Legion::Logging.fatal e.message
-        Legion::Logging.fatal e.backtrace
-        retries ||= 0
-        Legion::Logging.fatal 'Will retry in 3 seconds' if retries < 5
-        sleep(3)
-        retry if (retries += 1) < 5
+        retries += 1
+        Legion::Logging.log_exception(e, level: :fatal, payload_summary: "[Status] update_rmq failed (attempt #{retries}/3)", component_type: :runner)
+        retry if retries < 3
       end
 
-      def self.update_db(task_id:, status: 'task.completed', **opts)
+      def self.update_db(task_id:, status: 'task.completed', **)
         return if status.nil?
 
         task = Legion::Data::Model::Task[task_id]
         task.update(status: status)
       rescue StandardError => e
-        Legion::Logging.warn e.message
-        Legion::Logging.warn 'Legion::Runner.update_status_db failed, defaulting to rabbitmq'
-        Legion::Logging.warn e.backtrace
-        update_rmq(task_id: task_id, status: status, **opts)
+        Legion::Logging.log_exception(e, level:           :warn,
+                                         payload_summary: "[Status] update_db failed for task_id=#{task_id}, falling back to RabbitMQ update",
+                                         component_type:  :runner)
+        update_rmq(task_id: task_id, status: status, **)
       end
 
       def self.generate_task_id(runner_class:, function:, status: 'task.queued', **opts)
-        Legion::Logging.debug "Legion::Runner::Status.generate_task_id called, #{runner_class}, #{function}, status: #{status}, #{opts}"
+        Legion::Logging.debug "[Status] generate_task_id: #{runner_class}##{function} status=#{status}" if defined?(Legion::Logging)
         return nil unless Legion::Settings[:data][:connected]
 
-        runner = Legion::Data::Model::Runner.where(namespace: runner_class.to_s.downcase).first
+        runner = Legion::Data::Model::Runner.where(namespace: runner_class.to_s).first
         return nil if runner.nil?
 
         function = Legion::Data::Model::Function.where(runner_id: runner.values[:id], name: function).first
@@ -60,8 +60,7 @@ module Legion
 
         { success: true, task_id: Legion::Data::Model::Task.insert(insert), **insert }
       rescue StandardError => e
-        Legion::Logging.error e.message
-        Legion::Logging.error e.backtrace
+        Legion::Logging.log_exception(e, component_type: :runner)
         raise(e)
       end
     end

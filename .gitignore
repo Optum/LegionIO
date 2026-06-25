@@ -1,6 +1,7 @@
 /.bundle/
 /.yardoc
-/Gemfile.lock
+Gemfile.lock
+*.gem
 /_yardoc/
 /coverage/
 /doc/
@@ -13,3 +14,23 @@
 # rspec failure tracking
 .rspec_status
 legionio.key
+# runtime artifacts
+.DS_Store
+*.db
+*.json
+logs/
+# local settings (may contain secrets)
+settings/
+# design reference files
+legion_colors*.html
+legionio_animated*.html
+legionio_wallpaper*.svg
+# generated executive briefs
+legionio_overview*
+# git worktrees
+.worktrees/
+# local-only directories
+docs/
+config/tls/
+# generated integration specs
+spec/integration/self_generate_spec.rb

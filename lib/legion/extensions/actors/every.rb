@@ -1,46 +1,64 @@
+# frozen_string_literal: true
+
 require_relative 'base'
+require_relative 'fingerprint'
+require_relative 'dsl'
 
 module Legion
   module Extensions
     module Actors
       class Every
+        extend Legion::Extensions::Actors::Dsl
         include Legion::Extensions::Actors::Base
+        include Legion::Extensions::Actors::Fingerprint
+
+        define_dsl_accessor :time, default: 1
+        define_dsl_accessor :timeout, default: 5
+        define_dsl_accessor :run_now, default: false
 
         def initialize(**_opts)
-          @timer = Concurrent::TimerTask.new(execution_interval: time, timeout_interval: timeout, run_now: run_now?) do
-            use_runner? ? runner : manual
+          @executing = Concurrent::AtomicBoolean.new(false)
+          @timer = Concurrent::TimerTask.new(execution_interval: time, run_now: run_now?) do
+            if @executing.make_true
+              begin
+                log.debug "[Every] tick: #{self.class}" if defined?(log)
+                skip_or_run { use_runner? ? runner : manual }
+              rescue StandardError => e
+                log.error "[Every] tick failed for #{self.class}: #{e.class}: #{e.message}" if defined?(log)
+                handle_exception(e) if defined?(log)
+              ensure
+                @executing.make_false
+              end
+            elsif defined?(log)
+              log.debug "[Every] skipped (previous still running): #{self.class}"
+            end
           end
 
-          @timer.execute
+          initial_delay = respond_to?(:delay) ? delay.to_f : 0
+          if initial_delay.positive?
+            Concurrent::ScheduledTask.execute(initial_delay) { @timer.execute }
+          else
+            @timer.execute
+          end
         rescue StandardError => e
-          Legion::Logging.error e.message
-          Legion::Logging.error e.backtrace
-        end
-
-        def time
-          1
-        end
-
-        def timeout
-          5
+          handle_exception(e)
         end
 
         def run_now?
-          false
+          run_now
         end
 
         def action(**_opts)
-          Legion::Logging.warn 'An extension is using the default block from Legion::Extensions::Runners::Every'
+          log.warn 'An extension is using the default block from Legion::Extensions::Runners::Every'
         end
 
         def cancel
-          Legion::Logging.debug 'Cancelling Legion Timer'
+          log.debug 'Cancelling Legion Timer'
           return true unless @timer.respond_to?(:shutdown)
 
           @timer.shutdown
         rescue StandardError => e
-          Legion::Logging.error e.message
-          Legion::Logging.error e.backtrace
+          handle_exception(e)
         end
       end
     end

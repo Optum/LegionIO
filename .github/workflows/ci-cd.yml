@@ -1,0 +1,13 @@
+name: CI/CD
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  helm-lint:
+    name: Helm Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v3
+      - run: helm lint deploy/helm/legion

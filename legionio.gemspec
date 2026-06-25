@@ -12,42 +12,57 @@ Gem::Specification.new do |spec|
 
   spec.summary       = 'The primary gem to run the LegionIO Framework'
   spec.description   = 'LegionIO is an extensible framework for running, scheduling and building relationships of tasks in a concurrent matter'
-  spec.homepage      = 'https://github.com/Optum/LegionIO'
+  spec.homepage      = 'https://github.com/LegionIO/LegionIO'
   spec.license       = 'Apache-2.0'
   spec.require_paths = ['lib']
-  spec.required_ruby_version = '>= 2.5.0'
+  spec.required_ruby_version = '>= 3.4'
 
   spec.metadata = {
-    'bug_tracker_uri'   => 'https://github.com/Optum/LegionIO/issues',
-    'changelog_uri'     => 'https://github.com/Optum/LegionIO/src/main/CHANGELOG.md',
-    'documentation_uri' => 'https://github.com/Optum/LegionIO',
-    'homepage_uri'      => 'https://github.com/Optum/LegionIO',
-    'source_code_uri'   => 'https://github.com/Optum/LegionIO',
-    'wiki_uri'          => 'https://github.com/Optum/LegionIO'
+    'bug_tracker_uri'       => 'https://github.com/LegionIO/LegionIO/issues',
+    'changelog_uri'         => 'https://github.com/LegionIO/LegionIO/blob/main/CHANGELOG.md',
+    'documentation_uri'     => 'https://github.com/LegionIO/LegionIO',
+    'homepage_uri'          => 'https://github.com/LegionIO/LegionIO',
+    'source_code_uri'       => 'https://github.com/LegionIO/LegionIO',
+    'wiki_uri'              => 'https://github.com/LegionIO/LegionIO',
+    'rubygems_mfa_required' => 'true'
   }
 
   spec.files = `git ls-files -z`.split("\x0").reject do |f|
     f.match(%r{^(test|spec|features)/})
   end
-  spec.test_files = spec.files.select { |p| p =~ %r{^test/.*_test.rb} }
 
   spec.bindir        = 'exe'
-  spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
+  spec.executables   = %w[legion legionio]
 
-  spec.add_dependency 'concurrent-ruby', '>= 1.1.7'
-  spec.add_dependency 'concurrent-ruby-ext', '>= 1.1.7'
-  spec.add_dependency 'daemons', '>= 1.3.1'
-  spec.add_dependency 'oj', '>= 3.10'
-  spec.add_dependency 'thor', '>= 1'
+  spec.add_dependency 'legion-mcp', '>= 0.7.1'
 
-  spec.add_dependency 'legion-cache', '>= 0.2.0'
-  spec.add_dependency 'legion-crypt', '>= 0.2.0'
-  spec.add_dependency 'legion-json', '>= 0.2.0'
-  spec.add_dependency 'legion-logging', '>= 0.2.0'
-  spec.add_dependency 'legion-settings', '>= 0.2.0'
-  spec.add_dependency 'legion-transport', '>= 1.1.9'
+  spec.add_dependency 'kramdown', '>= 2.0'
 
+  spec.add_dependency 'bootsnap', '>= 1.18'
+  spec.add_dependency 'concurrent-ruby', '>= 1.2'
+  spec.add_dependency 'concurrent-ruby-ext', '>= 1.2'
+  spec.add_dependency 'daemons', '>= 1.4'
+  spec.add_dependency 'graphql', '>= 2.0'
+  spec.add_dependency 'oj', '>= 3.16'
+  spec.add_dependency 'puma', '>= 6.0'
+  spec.add_dependency 'rackup', '>= 2.0'
+  spec.add_dependency 'reline', '>= 0.5'
+  spec.add_dependency 'rouge', '>= 4.0'
+  spec.add_dependency 'sinatra', '>= 4.0'
+  spec.add_dependency 'thor', '>= 1.3'
+  spec.add_dependency 'tty-spinner', '~> 0.9'
+
+  spec.add_dependency 'legion-cache', '>= 1.3.22'
+  spec.add_dependency 'legion-crypt', '>= 1.5.1'
+  spec.add_dependency 'legion-data', '>= 1.8.0'
+  spec.add_dependency 'legion-json', '>= 1.2.1'
+  spec.add_dependency 'legion-logging', '>= 1.5.0'
+  spec.add_dependency 'legion-settings', '>= 1.3.25'
+  spec.add_dependency 'legion-transport', '>= 1.4.14'
+
+  spec.add_dependency 'legion-apollo', '>= 0.4.0'
+  spec.add_dependency 'legion-gaia', '>= 0.9.26'
+  spec.add_dependency 'legion-llm', '>= 0.10.1'
+  spec.add_dependency 'legion-tty', '>= 0.5.4'
   spec.add_dependency 'lex-node'
-
-  spec.add_development_dependency 'legion-data'
 end

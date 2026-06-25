@@ -1,0 +1,114 @@
+# frozen_string_literal: true
+
+begin
+  require 'legion/cli/chat_command'
+  require 'legion/cli/chat/memory_store'
+rescue LoadError
+  nil
+end
+
+module Legion
+  module CLI
+    class Chat
+      module Tools
+        class ConsolidateMemory < Legion::Tools::Base
+          tool_name 'legion.consolidate_memory'
+          description 'Consolidate and organize memory entries by removing duplicates, merging related items, ' \
+                      'and creating cleaner summaries. Use this when memory has grown cluttered or has redundant entries. ' \
+                      'Pass scope "project" or "global" to target the right memory file.'
+          input_schema({
+                         type:       'object',
+                         properties: {
+                           scope:   { type: 'string', description: 'Memory scope: "project" or "global" (default: project)' },
+                           dry_run: { type: 'string', description: 'Set to "true" to preview without writing (default: false)' }
+                         },
+                         required:   []
+                       })
+
+          CONSOLIDATION_PROMPT = <<~PROMPT
+            You are a memory consolidation engine. Given a list of memory entries, produce a cleaned-up version that:
+
+            1. Removes exact or near-duplicate entries (keep the most complete version)
+            2. Merges entries about the same topic into a single clear statement
+            3. Preserves all unique and valuable information
+            4. Keeps entries concise — one line per memory
+            5. Drops entries that are purely temporary or session-specific
+            6. Preserves the most recent timestamp when merging
+
+            Return ONLY the consolidated entries, one per line, each prefixed with "- ".
+            Do NOT add headers, explanations, or commentary.
+          PROMPT
+
+          def self.call(scope: 'project', dry_run: nil)
+            dry_run = dry_run.to_s == 'true'
+            scope_sym = scope.to_s == 'global' ? :global : :project
+
+            entries = MemoryStore.list(scope: scope_sym)
+            return "No memory entries found in #{scope} scope." if entries.empty?
+            return "Only #{entries.size} entries — no consolidation needed." if entries.size < 3
+
+            consolidated = consolidate_entries(entries)
+            return 'Consolidation failed: could not generate summary.' unless consolidated
+
+            new_entries = parse_consolidated(consolidated)
+            removed = entries.size - new_entries.size
+
+            if dry_run
+              preview = new_entries.map.with_index(1) { |e, i| "#{i}. #{e}" }.join("\n")
+              "Preview (#{entries.size} -> #{new_entries.size}, #{removed} removed):\n\n#{preview}"
+            else
+              write_consolidated(new_entries, scope_sym)
+              "Consolidated #{scope} memory: #{entries.size} -> #{new_entries.size} entries (#{removed} removed/merged)"
+            end
+          rescue StandardError => e
+            Legion::Logging.warn("ConsolidateMemory#execute failed: #{e.message}") if defined?(Legion::Logging)
+            "Error consolidating memory: #{e.message}"
+          end
+
+          def self.consolidate_entries(entries)
+            return nil unless defined?(Legion::LLM) && Legion::LLM.respond_to?(:chat)
+
+            numbered = entries.map.with_index(1) { |e, i| "#{i}. #{e}" }.join("\n")
+
+            response = Legion::LLM.chat(
+              message: "#{CONSOLIDATION_PROMPT}\n\nCurrent entries:\n#{numbered}",
+              caller:  { requested_by: { type: :system, identity: 'legion:internal:cli:consolidate_memory' } }
+            )
+            extract_response_content(response)
+          end
+
+          def self.extract_response_content(response)
+            if response.is_a?(Hash)
+              (response[:response] || response[:content] || response['response'] || response['content']).to_s
+            elsif response.respond_to?(:content)
+              response.content.to_s
+            else
+              response.to_s
+            end
+          end
+
+          def self.parse_consolidated(text)
+            text.lines
+                .map(&:strip)
+                .select { |line| line.start_with?('- ') }
+                .map { |line| line.sub(/\A- /, '').strip }
+                .reject(&:empty?)
+          end
+
+          def self.write_consolidated(entries, scope_sym)
+            path = scope_sym == :global ? MemoryStore.global_path : MemoryStore.project_path
+            header = scope_sym == :global ? "# Global Memory\n" : "# Project Memory\n"
+            timestamp = Time.now.strftime('%Y-%m-%d %H:%M')
+
+            content = header
+            content += "\n_Consolidated on #{timestamp}_\n"
+            entries.each { |entry| content += "\n- #{entry}\n" }
+
+            MemoryStore.send(:ensure_dir, path)
+            File.write(path, content, encoding: 'utf-8')
+          end
+        end
+      end
+    end
+  end
+end

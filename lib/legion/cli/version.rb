@@ -1,5 +1,8 @@
+# frozen_string_literal: true
+
 module Legion
-  class Cli
-    VERSION = '0.2.0'.freeze
+  module CLI
+    # CLI version tracks the main gem version
+    VERSION = Legion::VERSION
   end
 end

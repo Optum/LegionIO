@@ -1,31 +1,31 @@
+# frozen_string_literal: true
+
+require 'legion/json/helper'
+require_relative 'core'
+require_relative 'logger'
+require_relative 'secret'
+require_relative 'cache'
+require_relative 'transport'
+require_relative 'task'
+
+begin
+  require_relative 'data'
+rescue LoadError
+  nil
+end
+
 module Legion
   module Extensions
     module Helpers
       module Lex
         include Legion::Extensions::Helpers::Core
         include Legion::Extensions::Helpers::Logger
-
-        def function_example(function, example)
-          function_set(function, :example, example)
-        end
-
-        def function_options(function, options)
-          function_set(function, :options, options)
-        end
-
-        def function_desc(function, desc)
-          function_set(function, :desc, desc)
-        end
-
-        def function_set(function, key, value)
-          unless respond_to? function
-            log.debug "function_#{key} called but function doesn't exist, f: #{function}"
-            return nil
-          end
-          settings[:functions] = {} if settings[:functions].nil?
-          settings[:functions][function] = {} if settings[:functions][function].nil?
-          settings[:functions][function][key] = value
-        end
+        include Legion::JSON::Helper
+        include Legion::Extensions::Helpers::Secret
+        include Legion::Extensions::Helpers::Cache
+        include Legion::Extensions::Helpers::Transport
+        include Legion::Extensions::Helpers::Task
+        include Legion::Extensions::Helpers::Data if defined?(Legion::Extensions::Helpers::Data)
 
         def runner_desc(desc)
           settings[:runners] = {} if settings[:runners].nil?
@@ -34,8 +34,12 @@ module Legion
         end
 
         def self.included(base)
-          base.send :extend, Legion::Extensions::Helpers::Core if base.instance_of?(Class)
-          base.send :extend, Legion::Extensions::Helpers::Logger if base.instance_of?(Class)
+          if base.instance_of?(Class)
+            base.send :extend, Legion::Extensions::Helpers::Core
+            base.send :extend, Legion::Extensions::Helpers::Logger
+            base.send :extend, Legion::Extensions::Helpers::Cache
+            base.send :extend, Legion::Extensions::Helpers::Transport
+          end
           base.extend base if base.instance_of?(Module)
         end
 

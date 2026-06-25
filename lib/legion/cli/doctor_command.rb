@@ -1,0 +1,265 @@
+# frozen_string_literal: true
+
+require 'thor'
+
+module Legion
+  module CLI
+    class Doctor < Thor
+      autoload :Result,           'legion/cli/doctor/result'
+      autoload :RubyVersionCheck, 'legion/cli/doctor/ruby_version_check'
+      autoload :BundleCheck,      'legion/cli/doctor/bundle_check'
+      autoload :ConfigCheck,      'legion/cli/doctor/config_check'
+      autoload :RabbitmqCheck,    'legion/cli/doctor/rabbitmq_check'
+      autoload :DatabaseCheck,    'legion/cli/doctor/database_check'
+      autoload :CacheCheck,       'legion/cli/doctor/cache_check'
+      autoload :VaultCheck,       'legion/cli/doctor/vault_check'
+      autoload :ExtensionsCheck,  'legion/cli/doctor/extensions_check'
+      autoload :PidCheck,         'legion/cli/doctor/pid_check'
+      autoload :PermissionsCheck, 'legion/cli/doctor/permissions_check'
+      autoload :TlsCheck,         'legion/cli/doctor/tls_check'
+      autoload :ApiBindCheck,     'legion/cli/doctor/api_bind_check'
+      autoload :ModeCheck,        'legion/cli/doctor/mode_check'
+      autoload :PythonEnvCheck,   'legion/cli/doctor/python_env_check'
+
+      def self.exit_on_failure?
+        true
+      end
+
+      class_option :json,     type: :boolean, default: false, desc: 'Output as JSON'
+      class_option :no_color, type: :boolean, default: false, desc: 'Disable color output'
+
+      CHECKS = %i[
+        RubyVersionCheck
+        BundleCheck
+        ConfigCheck
+        RabbitmqCheck
+        DatabaseCheck
+        CacheCheck
+        VaultCheck
+        ExtensionsCheck
+        PidCheck
+        PermissionsCheck
+        TlsCheck
+        ApiBindCheck
+        ModeCheck
+        PythonEnvCheck
+      ].freeze
+
+      # Weights: security > connectivity > convenience
+      WEIGHTS = {
+        'TLS'                 => 3.0,
+        'Vault connection'    => 3.0,
+        'Permissions'         => 2.5,
+        'Ruby version'        => 2.0,
+        'RabbitMQ connection' => 2.0,
+        'Database connection' => 2.0,
+        'Cache connection'    => 1.5,
+        'Bundle'              => 1.5,
+        'Config'              => 1.0,
+        'Extensions'          => 1.0,
+        'Python env'          => 1.0,
+        'PID files'           => 0.5
+      }.freeze
+
+      GRADE_THRESHOLDS = [
+        [0.95, 'A'],
+        [0.85, 'B'],
+        [0.70, 'C'],
+        [0.50, 'D']
+      ].freeze
+
+      desc 'diagnose', 'Check environment health and suggest fixes'
+      method_option :fix, type: :boolean, default: false, desc: 'Auto-fix issues where possible'
+      def diagnose
+        out = formatter
+        begin
+          Connection.ensure_settings(resolve_secrets: false)
+        rescue StandardError => e
+          Legion::Logging.debug("Doctor#diagnose settings load failed: #{e.message}") if defined?(Legion::Logging)
+        end
+        results = run_all_checks
+
+        if options[:json]
+          output_json(out, results)
+        else
+          output_text(out, results)
+        end
+
+        auto_fix(results) if options[:fix]
+
+        exit(1) if results.any?(&:fail?)
+      ensure
+        Connection.shutdown
+      end
+
+      default_task :diagnose
+
+      no_commands do
+        def formatter
+          @formatter ||= Output::Formatter.new(
+            json:  options[:json],
+            color: !options[:no_color]
+          )
+        end
+      end
+
+      private
+
+      def check_classes
+        CHECKS.map { |name| Doctor.const_get(name) }
+      end
+
+      def run_all_checks
+        check_classes.map do |check_class|
+          result = check_class.new.run
+          inject_weight(result)
+        rescue StandardError => e
+          Legion::Logging.error("DoctorCommand#run_all_checks unexpected error in #{check_class}: #{e.message}") if defined?(Legion::Logging)
+          Doctor::Result.new(
+            name:    check_class.new.name,
+            status:  :fail,
+            message: "Unexpected error: #{e.message}"
+          )
+        end
+      end
+
+      def inject_weight(result)
+        weight = WEIGHTS[result.name] || 1.0
+        result.instance_variable_set(:@weight, weight)
+        result
+      end
+
+      def output_text(out, results)
+        out.header('Legion Environment Diagnosis')
+        out.spacer
+
+        results.each { |r| print_result(out, r) }
+
+        out.spacer
+        print_summary(out, results)
+      end
+
+      def print_result(out, result)
+        label = result.name.ljust(24)
+        score_label = result.score ? format('%.1f', result.score) : ' - '
+        case result.status
+        when :pass
+          puts "  #{out.colorize('pass', :green)} #{score_label}  #{label} #{out.colorize(result.message.to_s, :muted)}"
+        when :fail
+          puts "  #{out.colorize('FAIL', :red)} #{score_label}  #{label} #{out.colorize(result.message.to_s, :critical)}"
+          puts "    #{out.colorize('->', :yellow)} #{result.prescription}" if result.prescription
+        when :warn
+          puts "  #{out.colorize('WARN', :yellow)} #{score_label}  #{label} #{out.colorize(result.message.to_s, :caution)}"
+          puts "    #{out.colorize('->', :yellow)} #{result.prescription}" if result.prescription
+        when :skip
+          puts "  #{out.colorize('skip', :muted)} #{score_label}  #{label} #{out.colorize(result.message.to_s, :disabled)}"
+        end
+      end
+
+      def print_summary(out, results)
+        passed       = results.count(&:pass?)
+        failed       = results.count(&:fail?)
+        warned       = results.count(&:warn?)
+        skipped      = results.count(&:skip?)
+        auto_fixable = results.count { |r| (r.fail? || r.warn?) && r.auto_fixable }
+
+        agg = aggregate_score(results)
+        grade = letter_grade(agg)
+
+        msg = build_summary_message(passed, failed, warned, skipped, auto_fixable)
+
+        out.spacer
+        grade_color = grade_color_for(grade)
+        puts "  Health Score: #{out.colorize(format('%.0f%%', agg * 100), grade_color)}  Grade: #{out.colorize(grade, grade_color)}"
+        out.spacer
+
+        if failed.positive?
+          out.error(msg)
+        elsif warned.positive?
+          out.warn(msg)
+        else
+          out.success(msg)
+        end
+      end
+
+      def build_summary_message(passed, failed, warned, skipped, auto_fixable)
+        msg = "#{passed} passed"
+        msg += ", #{failed} failed" if failed.positive?
+        msg += ", #{warned} warnings" if warned.positive?
+        msg += ", #{skipped} skipped" if skipped.positive?
+        msg += " (#{auto_fixable} auto-fixable, run with --fix)" if auto_fixable.positive? && !options[:fix]
+        msg
+      end
+
+      def aggregate_score(results)
+        scored = results.reject(&:skip?)
+        return 0.0 if scored.empty?
+
+        weighted_sum = scored.sum { |r| r.score * r.weight }
+        total_weight = scored.sum(&:weight)
+        total_weight.zero? ? 0.0 : weighted_sum / total_weight
+      end
+
+      def letter_grade(score)
+        GRADE_THRESHOLDS.each do |threshold, grade|
+          return grade if score >= threshold
+        end
+        'F'
+      end
+
+      def grade_color_for(grade)
+        case grade
+        when 'A' then :green
+        when 'B' then :cyan
+        when 'C' then :yellow
+        when 'D' then :caution
+        else          :red
+        end
+      end
+
+      def output_json(out, results)
+        passed       = results.count(&:pass?)
+        failed       = results.count(&:fail?)
+        warned       = results.count(&:warn?)
+        skipped      = results.count(&:skip?)
+        auto_fixable = results.count { |r| (r.fail? || r.warn?) && r.auto_fixable }
+        agg          = aggregate_score(results)
+        grade        = letter_grade(agg)
+
+        out.json({
+                   results: results.map(&:to_h),
+                   summary: {
+                     passed:       passed,
+                     failed:       failed,
+                     warnings:     warned,
+                     skipped:      skipped,
+                     auto_fixable: auto_fixable,
+                     health_score: agg.round(4),
+                     grade:        grade
+                   }
+                 })
+      end
+
+      def auto_fix(results)
+        fixable = results.select { |r| (r.fail? || r.warn?) && r.auto_fixable }
+        return if fixable.empty?
+
+        out = formatter
+        out.spacer
+        out.header('Auto-fixing issues...')
+
+        check_classes.each do |check_class|
+          instance = check_class.new
+          result   = results.find { |r| r.name == instance.name }
+          next unless result && (result.fail? || result.warn?) && result.auto_fixable
+          next unless instance.respond_to?(:fix)
+
+          out.success("Fixing: #{result.name}")
+          instance.fix
+        rescue StandardError => e
+          out.error("Fix failed for #{check_class}: #{e.message}")
+        end
+      end
+    end
+  end
+end

@@ -1,0 +1,204 @@
+# frozen_string_literal: true
+
+require 'legion/cli/chat_command'
+require 'shellwords'
+require 'net/http'
+require 'json'
+
+module Legion
+  module CLI
+    class Chat
+      module Context
+        PROJECT_MARKERS = {
+          'Gemfile'          => :ruby,
+          'package.json'     => :javascript,
+          'Cargo.toml'       => :rust,
+          'go.mod'           => :go,
+          'pyproject.toml'   => :python,
+          'requirements.txt' => :python,
+          'pom.xml'          => :java,
+          'build.gradle'     => :java,
+          'main.tf'          => :terraform,
+          'Makefile'         => :make
+        }.freeze
+
+        def self.detect(directory)
+          dir = File.expand_path(directory)
+          {
+            directory:    dir,
+            project_type: detect_project_type(dir),
+            git_branch:   detect_git_branch(dir),
+            git_dirty:    detect_git_dirty(dir),
+            project_file: detect_project_file(dir)
+          }
+        end
+
+        def self.to_system_prompt(directory, extra_dirs: [])
+          ctx = detect(directory)
+          parts = []
+          parts << 'You are Legion, an AI assistant powered by the LegionIO framework.'
+          parts << 'You have access to tools for reading files, writing files, editing files, searching, and running shell commands.'
+          parts << 'Be concise and helpful. Use markdown formatting for code.'
+          parts << ''
+          parts << 'IMPORTANT: You are the AI assistant. Do not generate content (code, specs, prompts, ' \
+                   'instructions) specifically for users to copy/paste into other AI tools (Claude, Codex, ' \
+                   'ChatGPT, Copilot, etc.). If a user wants to accomplish a task, help them do it directly. ' \
+                   'If they need API documentation, point them to `legion openapi generate` or the running ' \
+                   'API at /api/openapi.json. Do not act as a clipboard intermediary between the user and another AI.'
+          parts << ''
+          parts << "Working directory: #{ctx[:directory]}"
+          parts << "Project type: #{ctx[:project_type]}" if ctx[:project_type]
+          parts << "Git branch: #{ctx[:git_branch]}" if ctx[:git_branch]
+          parts << 'Uncommitted changes present' if ctx[:git_dirty]
+
+          begin
+            require 'legion/cli/chat/extension_tool_loader'
+            ext_tools = Chat::ExtensionToolLoader.discover
+            if ext_tools.any?
+              ext_names = ext_tools.filter_map do |t|
+                next unless t.name
+
+                t.name.split('::').last.gsub(/([a-z])([A-Z])/, '\1_\2').downcase
+              end
+              parts << "Extension tools available: #{ext_names.join(', ')}"
+            end
+          rescue LoadError => e
+            Legion::Logging.debug("Context#to_system_prompt ExtensionToolLoader not available: #{e.message}") if defined?(Legion::Logging)
+          end
+
+          parts << cognitive_awareness(directory)
+          parts << self_awareness_hint
+
+          extra_dirs.each do |dir|
+            expanded = File.expand_path(dir)
+            next unless Dir.exist?(expanded)
+
+            parts << "Additional directory: #{expanded}"
+          end
+
+          %w[LEGION.md CLAUDE.md].each do |name|
+            path = File.join(ctx[:directory], name)
+            next unless File.exist?(path)
+
+            content = File.read(path, encoding: 'utf-8')
+            parts << ''
+            parts << "# Project Instructions (#{name})"
+            parts << content
+            break
+          end
+
+          parts.join("\n")
+        end
+
+        def self.detect_project_type(dir)
+          PROJECT_MARKERS.each do |file, type|
+            return type if File.exist?(File.join(dir, file))
+          end
+          nil
+        end
+
+        def self.detect_git_branch(dir)
+          head = File.join(dir, '.git', 'HEAD')
+          return nil unless File.exist?(head)
+
+          ref = File.read(head).strip
+          ref.start_with?('ref: refs/heads/') ? ref.sub('ref: refs/heads/', '') : ref[0..7]
+        end
+
+        def self.detect_git_dirty(dir)
+          return false unless File.exist?(File.join(dir, '.git'))
+
+          output = `cd #{Shellwords.escape(dir)} && git status --porcelain 2>/dev/null`
+          !output.strip.empty?
+        rescue StandardError => e
+          Legion::Logging.debug("Context#detect_git_dirty failed: #{e.message}") if defined?(Legion::Logging)
+          false
+        end
+
+        def self.cognitive_awareness(directory)
+          hints = []
+          hints << daemon_hint
+          hints << memory_hint(directory)
+          hints << apollo_hint
+          hints.compact!
+          return nil if hints.empty?
+
+          "\nCognitive context:\n#{hints.join("\n")}"
+        rescue StandardError => e
+          Legion::Logging.debug("Context#cognitive_awareness failed: #{e.message}") if defined?(Legion::Logging)
+          nil
+        end
+
+        def self.memory_hint(directory)
+          require 'legion/cli/chat/memory_store'
+          project_entries = Chat::MemoryStore.list(base_dir: directory)
+          global_entries  = Chat::MemoryStore.list(scope: :global)
+          total = project_entries.size + global_entries.size
+          return nil if total.zero?
+
+          "  Memory: #{project_entries.size} project + #{global_entries.size} global entries (use save_memory/search_memory/consolidate_memory)"
+        rescue LoadError
+          nil
+        end
+
+        def self.apollo_hint
+          uri = URI("http://127.0.0.1:#{apollo_port}/api/apollo/status")
+          http = Net::HTTP.new(uri.host, uri.port)
+          http.open_timeout = 1
+          http.read_timeout = 1
+          response = http.get(uri.path)
+          data = ::JSON.parse(response.body, symbolize_names: true)
+          available = data.dig(:data, :available)
+          return nil unless available
+
+          '  Apollo knowledge graph: online (use query_knowledge/ingest_knowledge/relate_knowledge/knowledge_stats)'
+        rescue StandardError
+          nil
+        end
+
+        def self.daemon_hint
+          port = apollo_port
+          uri = URI("http://127.0.0.1:#{port}/api/health")
+          http = Net::HTTP.new(uri.host, uri.port)
+          http.open_timeout = 1
+          http.read_timeout = 1
+          response = http.get(uri.path)
+          data = ::JSON.parse(response.body, symbolize_names: true)
+          return nil unless data[:status] == 'ok'
+
+          parts = ["  Legion daemon: running on port #{port}"]
+          parts << " (v#{data[:version]})" if data[:version]
+          parts.join
+        rescue StandardError
+          nil
+        end
+
+        def self.apollo_port
+          return 4567 unless defined?(Legion::Settings)
+
+          Legion::Settings[:api]&.dig(:port) || 4567
+        rescue StandardError
+          4567
+        end
+
+        def self.detect_project_file(dir)
+          PROJECT_MARKERS.each_key do |file|
+            path = File.join(dir, file)
+            return path if File.exist?(path)
+          end
+          nil
+        end
+
+        def self.self_awareness_hint
+          return nil unless defined?(Legion::Extensions::Agentic::Self::Metacognition::Runners::Metacognition)
+
+          result = Legion::Extensions::Agentic::Self::Metacognition::Runners::Metacognition.self_narrative
+          narrative = result[:prose] if result.is_a?(Hash) && result[:prose]
+          narrative ? "\nCurrent self-awareness:\n#{narrative}" : nil
+        rescue StandardError
+          nil
+        end
+      end
+    end
+  end
+end

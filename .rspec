@@ -1,0 +1,2 @@
+--color
+--exclude-pattern spec/live/**/*_spec.rb

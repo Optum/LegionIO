@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Legion
   module Extensions
     module Transport
@@ -7,6 +9,7 @@ module Legion
       attr_accessor :exchanges, :queues, :consumers, :messages
 
       def build
+        log.debug "[Transport] build start: #{lex_name}"
         @queues = []
         @exchanges = []
         @messages = []
@@ -19,15 +22,17 @@ module Legion
         build_e_to_q(additional_e_to_q)
         auto_create_dlx_exchange
         auto_create_dlx_queue
+        auto_generate_messages
+        log.info "[Transport] built exchanges=#{@exchanges.count} queues=#{@queues.count} for #{lex_name}"
       rescue StandardError => e
-        Legion::Logging.error e.message
-        Legion::Logging.error e.backtrace
+        log.error "[Transport] build failed for #{lex_name}"
+        handle_exception(e, lex: lex_name)
       end
 
       def generate_base_modules
-        lex_class.const_set('Transport', Module.new) unless lex_class.const_defined?('Transport')
+        lex_class.const_set('Transport', Module.new) unless lex_class.const_defined?('Transport', false)
         %w[Queues Exchanges Messages Consumers].each do |thing|
-          next if transport_class.const_defined? thing
+          next if transport_class.const_defined?(thing, false)
 
           transport_class.const_set(thing, Module.new)
         end
@@ -35,7 +40,7 @@ module Legion
 
       def require_transport_items
         { exchanges: @exchanges, queues: @queues, consumers: @consumers, messages: @messages }.each do |item, obj|
-          Dir[File.expand_path("#{transport_path}/#{item}/*.rb")].sort.each do |file|
+          Dir[File.expand_path("#{transport_path}/#{item}/*.rb")].each do |file|
             require file
             file_name = file.to_s.split('/').last.split('.').first
             obj.push(file_name) unless obj.include?(file_name)
@@ -43,23 +48,22 @@ module Legion
         end
       end
 
-      def auto_create_exchange(exchange, default_exchange = false) # rubocop:disable Style/OptionalBooleanParameter
+      def auto_create_exchange(exchange, default_exchange: false)
         if Object.const_defined? exchange
-          Legion::Logging.warn "#{exchange} is already defined"
+          log.warn "#{exchange} is already defined"
           return
         end
         return build_default_exchange if default_exchange
 
+        ext_amqp = amqp_prefix
         transport_class::Exchanges.const_set(exchange.split('::').pop, Class.new(Legion::Transport::Exchange) do
-          def exchange_name
-            self.class.ancestors.first.to_s.split('::')[5].downcase
-          end
+          define_method(:exchange_name) { "#{ext_amqp}.#{self.class.to_s.split('::').last.downcase}" }
         end)
       end
 
       def auto_create_queue(queue)
         if Kernel.const_defined?(queue)
-          Legion::Logging.warn "#{queue} is already defined"
+          log.warn "#{queue} is already defined"
           return
         end
 
@@ -67,12 +71,18 @@ module Legion
       end
 
       def auto_create_dlx_exchange
-        dlx = if transport_class::Exchanges.const_defined? 'Dlx'
+        return unless remote_invocable_extension?
+
+        dlx = if transport_class::Exchanges.const_defined?('Dlx', false)
                 transport_class::Exchanges::Dlx
               else
                 transport_class::Exchanges.const_set('Dlx', Class.new(default_exchange) do
                   def exchange_name
                     "#{super}.dlx"
+                  end
+
+                  def default_type
+                    'fanout'
                   end
                 end)
               end
@@ -81,11 +91,47 @@ module Legion
       end
 
       def auto_create_dlx_queue
-        return if transport_class::Queues.const_defined?('Dlx')
+        return unless remote_invocable_extension?
+        return if transport_class::Queues.const_defined?('Dlx', false)
 
         special_name = default_exchange.new.exchange_name
         dlx_queue = Legion::Transport::Queue.new "#{special_name}.dlx", auto_delete: false
         dlx_queue.bind("#{special_name}.dlx", { routing_key: '#' })
+      end
+
+      def auto_generate_messages
+        return unless defined?(@runners) && @runners.is_a?(Hash)
+
+        messages_mod = transport_class::Messages
+        ext_amqp = amqp_prefix
+        @runners.each_value { |info| auto_generate_runner_messages(info, messages_mod, ext_amqp) }
+      rescue StandardError => e
+        log.error("[Transport] auto-generate messages failed: #{e.message}") if respond_to?(:log)
+      end
+
+      def auto_generate_runner_messages(runner_info, messages_mod, ext_amqp)
+        runner_name = runner_info[:runner_name]
+        runner_module = runner_info[:runner_module]
+        return if runner_module.nil?
+        return unless runner_module.respond_to?(:definition_for)
+
+        methods = runner_module.respond_to?(:instance_methods) ? runner_module.instance_methods(false) : []
+        methods.each { |method_name| auto_generate_message(runner_name, method_name, runner_module, messages_mod, ext_amqp) }
+      end
+
+      def auto_generate_message(runner_name, method_name, runner_module, messages_mod, ext_amqp)
+        defn = runner_module.definition_for(method_name)
+        return if defn.nil? || defn[:inputs].nil? || defn[:inputs].empty?
+
+        class_name = "#{runner_name.to_s.split('_').collect(&:capitalize).join}#{method_name.to_s.split('_').collect(&:capitalize).join}"
+        return if messages_mod.const_defined?(class_name, false)
+
+        routing_key = "#{ext_amqp}.runners.#{runner_name}.#{method_name}"
+        msg_class = Class.new(Legion::Transport::Message) do
+          define_method(:exchange_name) { ext_amqp }
+          define_method(:routing_key) { routing_key }
+        end
+        messages_mod.const_set(class_name, msg_class)
       end
 
       def build_e_to_q(array)
@@ -94,22 +140,32 @@ module Legion
           binding[:to] = nil unless binding.key?(:to)
           binding[:from] = default_exchange if !binding.key?(:from) || binding[:from].nil?
           bind_e_to_q(**binding)
+        rescue StandardError => e
+          log.warn '[transport] failed to build exchange-to-queue binding ' \
+                   "from=#{binding[:from].inspect} to=#{binding[:to].inspect} " \
+                   "routing_key=#{binding[:routing_key].inspect} binding=#{binding.inspect}"
+          handle_exception(e, handled: false, level: :warn)
+          raise e
         end
       end
 
       def bind_e_to_q(to:, from: default_exchange, routing_key: nil, **)
+        log.debug "[transport] building auto binding exchange: #{from}, routing_key: #{routing_key}, to: #{to}"
         if from.is_a? String
-          from = "#{transport_class}::Exchanges::#{from.split('_').collect(&:capitalize).join}" unless from.include?('::')
+          from = "#{transport_class}::Exchanges::#{from.tr('.', '_').split('_').collect(&:capitalize).join}" unless from.include?('::')
           auto_create_exchange(from) unless Object.const_defined? from
         end
 
         if to.is_a? String
-          to = "#{transport_class}::Queues::#{to.split('_').collect(&:capitalize).join}" unless to.include?('::')
+          to = "#{transport_class}::Queues::#{to.tr('.', '_').split('_').collect(&:capitalize).join}" unless to.include?('::')
           auto_create_queue(to) unless Object.const_defined?(to)
         end
 
         routing_key = to.to_s.split('::').last.downcase if routing_key.nil?
         bind(from, to, routing_key: routing_key)
+      rescue StandardError => e
+        handle_exception(e, handled: false, level: :warn, from: from, to: to, routing_key: routing_key)
+        raise e
       end
 
       def build_e_to_e
@@ -125,6 +181,9 @@ module Legion
           end
 
           bind(binding[:from], binding[:to], binding)
+        rescue StandardError => e
+          handle_exception(e, handled: false, level: :warn)
+          raise e
         end
       end
 
@@ -133,18 +192,15 @@ module Legion
         to = to.is_a?(String) ? Kernel.const_get(to).new : to.new
         to.bind(from, routing_key: routing_key)
       rescue StandardError => e
-        log.fatal e.message
-        log.fatal e.backtrace
-        log.fatal({ from: from, to: to, routing_key: routing_key })
+        handle_exception(e, level: :fatal, from: from, to: to, routing_key: routing_key)
       end
 
       def e_to_q
-        [] if !@exchanges.count != 1
-        auto = []
-        @queues.each do |queue|
-          auto.push(from: @exchanges.first, to: queue, routing_key: queue)
+        return [] if @exchanges.count != 1
+
+        @queues.map do |queue|
+          { from: @exchanges.first, to: queue, routing_key: "#{amqp_prefix}.runners.#{queue}.#" }
         end
-        auto
       end
 
       def e_to_e
@@ -153,6 +209,12 @@ module Legion
 
       def additional_e_to_q
         []
+      end
+
+      def remote_invocable_extension?
+        return lex_class.remote_invocable? if lex_class.respond_to?(:remote_invocable?)
+
+        true
       end
     end
   end

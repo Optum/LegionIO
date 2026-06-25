@@ -1,50 +1,75 @@
+# frozen_string_literal: true
+
 require_relative 'base'
+require_relative 'fingerprint'
+require_relative 'dsl'
 require 'time'
 
 module Legion
   module Extensions
     module Actors
       class Poll
+        extend Legion::Extensions::Actors::Dsl
         include Legion::Extensions::Actors::Base
+        include Legion::Extensions::Actors::Fingerprint
 
-        def initialize # rubocop:disable Metrics/AbcSize
-          log.debug "Starting timer for #{self.class} with #{{ execution_interval: time, timeout_interval: timeout, run_now: run_now?, check_subtask: check_subtask? }}"
-          @timer = Concurrent::TimerTask.new(execution_interval: time, timeout_interval: timeout, run_now: run_now?) do
-            t1 = Time.now
-            log.debug "Running #{self.class}"
-            old_result = Legion::Cache.get(cache_name)
-            log.debug "Cached value for #{self.class}: #{old_result}"
-            results = Legion::JSON.load(Legion::JSON.dump(manual))
-            Legion::Cache.set(cache_name, results, time * 2)
+        define_dsl_accessor :time, default: 9
+        define_dsl_accessor :timeout, default: 5
+        define_dsl_accessor :run_now, default: true
+        define_dsl_accessor :int_percentage_normalize, default: 0.00
 
-            unless old_result.nil?
-              results[:diff] = Hashdiff.diff(results, old_result, numeric_tolerance: 0.0, array_path: false) do |_path, obj1, obj2|
-                if int_percentage_normalize.positive? && obj1.is_a?(Integer) && obj2.is_a?(Integer)
-                  obj1.between?(obj2 * (1 - int_percentage_normalize), obj2 * (1 + int_percentage_normalize))
-                end
+        def initialize
+          log.debug "Starting timer for #{self.class} with #{{ execution_interval: time, run_now: run_now?,
+check_subtask: check_subtask? }}"
+          @executing = Concurrent::AtomicBoolean.new(false)
+          @timer = Concurrent::TimerTask.new(execution_interval: time, run_now: run_now?) do
+            if @executing.make_true
+              begin
+                skip_or_run { poll_cycle }
+              rescue StandardError => e
+                handle_exception(e, level: :fatal)
+              ensure
+                @executing.make_false
               end
-              results[:changed] = results[:diff].count.positive?
-
-              Legion::Logging.info results[:diff] if results[:changed]
-              Legion::Transport::Messages::CheckSubtask.new(runner_class: runner_class.to_s,
-                                                            function:     runner_function,
-                                                            result:       results,
-                                                            type:         'poll_result',
-                                                            polling:      true).publish
+            else
+              Legion::Logging.debug "[Poll] skipped (previous still running): #{self.class}"
             end
-
-            sleep_time = 1 - (Time.now - t1)
-            sleep(sleep_time) if sleep_time.positive?
-            log.debug("#{self.class} result: #{results}")
-            results
-          rescue StandardError => e
-            Legion::Logging.fatal e.message
-            Legion::Logging.fatal e.backtrace
           end
           @timer.execute
         rescue StandardError => e
-          Legion::Logging.error e.message
-          Legion::Logging.error e.backtrace
+          handle_exception(e)
+        end
+
+        def poll_cycle
+          t1 = Time.now
+          log.debug "Running #{self.class}"
+          old_result = Legion::Cache.get(cache_name)
+          log.debug "Cached value for #{self.class}: #{old_result}"
+          results = Legion::JSON.load(Legion::JSON.dump(manual))
+          Legion::Cache.set(cache_name, results, time * 2)
+
+          unless old_result.nil?
+            results[:diff] = Hashdiff.diff(results, old_result, numeric_tolerance: 0.0, array_path: false) do |_path, obj1, obj2|
+              if int_percentage_normalize.positive? && obj1.is_a?(Integer) && obj2.is_a?(Integer)
+                obj1.between?(obj2 * (1 - int_percentage_normalize), obj2 * (1 + int_percentage_normalize))
+              end
+            end
+            results[:changed] = results[:diff].any?
+
+            Legion::Logging.info results[:diff] if results[:changed]
+            Legion::Transport::Messages::CheckSubtask.new(runner_class: runner_class.to_s,
+                                                          function:     runner_function,
+                                                          result:       results,
+                                                          type:         'poll_result',
+                                                          polling:      true).publish
+          end
+
+          sleep_time = 1 - (Time.now - t1)
+          sleep(sleep_time) if sleep_time.positive?
+          log.debug("#{self.class} result: #{results}")
+          results
+        rescue StandardError => e
+          handle_exception(e, level: :fatal)
         end
 
         def cache_name
@@ -55,20 +80,8 @@ module Legion
           0.00
         end
 
-        def time
-          9
-        end
-
         def run_now?
-          true
-        end
-
-        def check_subtask?
-          true
-        end
-
-        def timeout
-          5
+          run_now
         end
 
         def action(_payload = {})
@@ -79,7 +92,7 @@ module Legion
           Legion::Logging.debug 'Cancelling Legion Poller'
           @timer.shutdown
         rescue StandardError => e
-          Legion::Logging.error e.message
+          handle_exception(e)
         end
       end
     end

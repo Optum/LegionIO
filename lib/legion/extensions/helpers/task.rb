@@ -1,3 +1,7 @@
+# frozen_string_literal: true
+
+require_relative 'base'
+require_relative 'logger'
 require 'legion/transport'
 require 'legion/transport/messages/task_update'
 require 'legion/transport/messages/task_log'
@@ -6,6 +10,9 @@ module Legion
   module Extensions
     module Helpers
       module Task
+        include Legion::Extensions::Helpers::Base
+        include Legion::Extensions::Helpers::Logger
+
         def generate_task_log(task_id:, function:, runner_class: to_s, **payload)
           begin
             if Legion::Settings[:data][:connected]
@@ -14,8 +21,7 @@ module Legion
               return true if Legion::Data::Model::TaskLog.insert(task_id: task_id, function_id: function_id, entry: Legion::JSON.dump(payload))
             end
           rescue StandardError => e
-            log.warn e.backtrace
-            log.warn("generate_task_log failed, reverting to rmq message, e: #{e.message}")
+            handle_exception(e, level: :warn)
           end
           Legion::Transport::Messages::TaskLog.new(task_id: task_id, runner_class: runner_class, function: function, entry: payload).publish
         end
@@ -39,8 +45,7 @@ module Legion
           end
           Legion::Transport::Messages::TaskUpdate.new(**update_hash).publish
         rescue StandardError => e
-          log.fatal e.message
-          log.fatal e.backtrace
+          handle_exception(e, level: :fatal)
           raise e
         end
 

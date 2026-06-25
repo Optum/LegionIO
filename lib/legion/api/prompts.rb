@@ -1,0 +1,118 @@
+# frozen_string_literal: true
+
+module Legion
+  class API < Sinatra::Base
+    module Routes
+      module Prompts
+        def self.registered(app)
+          app.helpers do
+            define_method(:require_llm!) do
+              return if defined?(Legion::LLM) &&
+                        Legion::LLM.respond_to?(:started?) &&
+                        Legion::LLM.started?
+
+              halt 503, json_error('llm_unavailable', 'LLM subsystem is not available', status_code: 503)
+            end
+
+            define_method(:prompt_client) do
+              require 'legion/extensions/prompt/client'
+              db = Legion::Data.connection
+              unless db.table_exists?(:prompts)
+                halt 503, json_error('prompt_unavailable', 'prompts table does not exist — run lex-prompt migrations', status_code: 503)
+              end
+              Legion::Extensions::Prompt::Client.new(db: db)
+            rescue LoadError => e
+              Legion::Logging.warn "Prompts#prompt_client failed to load lex-prompt: #{e.message}" if defined?(Legion::Logging)
+              halt 503, json_error('prompt_unavailable', 'lex-prompt is not loaded', status_code: 503)
+            end
+          end
+
+          register_list(app)
+          register_show(app)
+          register_run(app)
+        end
+
+        def self.register_list(app)
+          app.get '/api/prompts' do
+            client = prompt_client
+            result = client.list_prompts
+            json_response(result)
+          rescue StandardError => e
+            Legion::Logging.log_exception(e, payload_summary: 'API GET /api/prompts', component_type: :api)
+            json_error('execution_error', e.message, status_code: 500)
+          end
+        end
+
+        def self.register_show(app)
+          app.get '/api/prompts/:name' do
+            name = params[:name]
+            client = prompt_client
+            result = client.get_prompt(name: name)
+
+            if result[:error]
+              Legion::Logging.warn "API GET /api/prompts/#{name} returned 404: prompt not found"
+              halt 404, json_error('not_found', "prompt '#{name}' not found", status_code: 404)
+            end
+
+            json_response(result)
+          rescue StandardError => e
+            Legion::Logging.log_exception(e, payload_summary: "API GET /api/prompts/#{params[:name]}", component_type: :api)
+            json_error('execution_error', e.message, status_code: 500)
+          end
+        end
+
+        def self.register_run(app)
+          app.post '/api/prompts/:name/run' do
+            Legion::Logging.debug "API: POST /api/prompts/#{params[:name]}/run params=#{params.keys}"
+            require_llm!
+
+            name      = params[:name]
+            body      = parse_request_body
+            variables = body[:variables] || {}
+            version   = body[:version]
+            model     = body[:model]
+            provider  = body[:provider]
+
+            client = prompt_client
+            rendered = client.render_prompt(name: name, variables: variables, version: version)
+
+            if rendered[:error]
+              code = rendered[:error] == 'not_found' ? 404 : 422
+              halt code, json_error(rendered[:error], "prompt '#{name}' #{rendered[:error].tr('_', ' ')}", status_code: code)
+            end
+
+            session  = Legion::LLM.chat(model: model, provider: provider,
+                                        caller: { source: 'api', endpoint: 'prompts' })
+            response = session.ask(rendered[:rendered])
+
+            prompt_version = rendered[:prompt_version]
+            model_used     = session.model.to_s
+
+            usage = {
+              input_tokens:  response.respond_to?(:input_tokens) ? response.input_tokens : nil,
+              output_tokens: response.respond_to?(:output_tokens) ? response.output_tokens : nil
+            }
+
+            Legion::Logging.info "API: ran prompt #{name} version=#{prompt_version} model=#{model_used}"
+            json_response({
+                            name:            name,
+                            version:         prompt_version,
+                            rendered_prompt: rendered[:rendered],
+                            response:        response.content,
+                            usage:           usage,
+                            model:           model_used,
+                            provider:        provider
+                          })
+          rescue StandardError => e
+            Legion::Logging.log_exception(e, payload_summary: "API POST /api/prompts/#{params[:name]}/run", component_type: :api)
+            json_error('execution_error', e.message, status_code: 500)
+          end
+        end
+
+        class << self
+          private :register_list, :register_show, :register_run
+        end
+      end
+    end
+  end
+end

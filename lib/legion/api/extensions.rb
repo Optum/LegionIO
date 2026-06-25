@@ -1,0 +1,245 @@
+# frozen_string_literal: true
+
+module Legion
+  class API < Sinatra::Base
+    module Routes
+      module Extensions
+        def self.registered(app)
+          register_loaded_summary_route(app)
+          register_tools_route(app)
+          register_available_route(app)
+          register_extension_routes(app)
+          register_runner_routes(app)
+          register_function_routes(app)
+          register_invoke_route(app)
+        end
+
+        def self.register_loaded_summary_route(app)
+          app.get '/api/extensions' do
+            items = Legion::Extensions.loaded_extension_modules.map do |mod|
+              version = mod.const_get(:VERSION, false).to_s if mod.const_defined?(:VERSION, false)
+              name = if mod.respond_to?(:lex_name)
+                       mod.lex_name
+                     else
+                       mod.name.to_s.split('::').last.to_s.downcase
+                     end
+              { name: name, module: mod.name, version: version }.compact
+            end
+
+            json_response(items)
+          end
+        end
+
+        def self.register_tools_route(app)
+          app.get '/api/extensions/tools' do
+            entries = filter_tool_entries(Array(Legion::Settings::Extensions.tools), params)
+            tools = entries.map { |e| serialize_tool_entry(e) }
+            json_response({ total: tools.size, tools: tools })
+          end
+        end
+
+        def self.register_available_route(app)
+          app.get '/api/extension_catalog/available' do
+            entries = Legion::Extensions::Catalog::Available.all
+            entries = entries.select { |e| e[:category] == params[:category] } if params[:category]
+            json_response(entries)
+          end
+        end
+
+        def self.register_extension_routes(app)
+          app.get '/api/extension_catalog' do
+            entries = Routes::Extensions.extension_entries
+            entries = entries.select { |e| e[:state] == params[:state] } if params[:state]
+            json_response(entries)
+          end
+
+          app.get '/api/extension_catalog/:name' do
+            name = params[:name]
+            entry = Routes::Extensions.extension_entry(name)
+            halt_not_found("extension '#{name}' not found") unless entry
+
+            ext_mod = find_extension_module(name)
+
+            runners = ext_mod ? runner_summaries(ext_mod) : []
+
+            json_response(entry.merge(runners: runners).compact)
+          end
+        end
+
+        def self.register_runner_routes(app)
+          app.get '/api/extension_catalog/:name/runners' do
+            name = params[:name]
+            halt_not_found("extension '#{name}' not found") unless Legion::Extensions::Catalog.entry(name)
+
+            ext_mod = find_extension_module(name)
+            halt_not_found("extension '#{name}' not loaded") unless ext_mod
+
+            json_response(runner_summaries(ext_mod))
+          end
+
+          app.get '/api/extension_catalog/:name/runners/:runner_name' do
+            name = params[:name]
+            halt_not_found("extension '#{name}' not found") unless Legion::Extensions::Catalog.entry(name)
+
+            ext_mod = find_extension_module(name)
+            halt_not_found("extension '#{name}' not loaded") unless ext_mod
+
+            info = find_runner_info(ext_mod, params[:runner_name])
+            halt_not_found("runner '#{params[:runner_name]}' not found") unless info
+
+            runner_mod = info[:runner_module]
+            functions = runner_mod.instance_methods(false).map(&:to_s)
+
+            json_response({
+                            name:         info[:runner_name],
+                            runner_class: info[:runner_class],
+                            functions:    functions
+                          })
+          end
+        end
+
+        def self.register_function_routes(app)
+          app.get '/api/extension_catalog/:name/runners/:runner_name/functions' do
+            name = params[:name]
+            halt_not_found("extension '#{name}' not found") unless Legion::Extensions::Catalog.entry(name)
+
+            ext_mod = find_extension_module(name)
+            halt_not_found("extension '#{name}' not loaded") unless ext_mod
+
+            info = find_runner_info(ext_mod, params[:runner_name])
+            halt_not_found("runner '#{params[:runner_name]}' not found") unless info
+
+            functions = info[:runner_module].instance_methods(false).map do |m|
+              args = info.dig(:class_methods, m, :args)
+              { name: m.to_s, args: args }
+            end
+            json_response(functions)
+          end
+
+          app.get '/api/extension_catalog/:name/runners/:runner_name/functions/:function_name' do
+            name = params[:name]
+            halt_not_found("extension '#{name}' not found") unless Legion::Extensions::Catalog.entry(name)
+
+            ext_mod = find_extension_module(name)
+            halt_not_found("extension '#{name}' not loaded") unless ext_mod
+
+            info = find_runner_info(ext_mod, params[:runner_name])
+            halt_not_found("runner '#{params[:runner_name]}' not found") unless info
+
+            func_sym = params[:function_name].to_sym
+            halt_not_found("function '#{params[:function_name]}' not found") unless info[:runner_module].method_defined?(func_sym, false)
+
+            args = info.dig(:class_methods, func_sym, :args)
+            json_response({ name: params[:function_name], runner: params[:runner_name], args: args })
+          end
+        end
+
+        def self.register_invoke_route(app)
+          app.post '/api/extension_catalog/:name/runners/:runner_name/functions/:function_name/invoke' do
+            name = params[:name]
+            halt_not_found("extension '#{name}' not found") unless Legion::Extensions::Catalog.entry(name)
+
+            ext_mod = find_extension_module(name)
+            halt_not_found("extension '#{name}' not loaded") unless ext_mod
+
+            info = find_runner_info(ext_mod, params[:runner_name])
+            halt_not_found("runner '#{params[:runner_name]}' not found") unless info
+
+            func_sym = params[:function_name].to_sym
+            halt_not_found("function '#{params[:function_name]}' not found") unless info[:runner_module].method_defined?(func_sym, false)
+
+            body = parse_request_body
+
+            result = Legion::Ingress.run(
+              payload:       body,
+              runner_class:  info[:runner_class],
+              function:      func_sym,
+              source:        'api',
+              check_subtask: body.fetch(:check_subtask, true),
+              generate_task: body.fetch(:generate_task, true)
+            )
+            json_response(result, status_code: 201)
+          rescue NameError => e
+            json_error('invalid_runner', e.message, status_code: 422)
+          rescue StandardError => e
+            Legion::Logging.error "API POST /api/extension_catalog invoke: #{e.class} - #{e.message}" if defined?(Legion::Logging)
+            json_error('execution_error', e.message, status_code: 500)
+          end
+        end
+
+        class << self
+          def extension_entries
+            handles = if Legion::Extensions.respond_to?(:extension_handles)
+                        Legion::Extensions.extension_handles
+                      else
+                        []
+                      end
+            return handles.map { |handle| serialize_handle(handle) } unless handles.empty?
+
+            Legion::Extensions::Catalog.all.filter_map do |name, entry|
+              serialize_catalog_entry(name, entry)
+            end
+          end
+
+          def extension_entry(name)
+            handle = Legion::Extensions.extension_handle(name) if Legion::Extensions.respond_to?(:extension_handle)
+            return serialize_handle(handle) if handle
+
+            serialize_catalog_entry(name, Legion::Extensions::Catalog.entry(name))
+          end
+
+          def serialize_handle(handle)
+            {
+              name:                     handle.lex_name,
+              state:                    handle.state.to_s,
+              active_version:           handle.active_version&.to_s,
+              latest_installed_version: handle.latest_installed_version&.to_s,
+              reload_state:             handle.reload_state.to_s,
+              pending_reload:           handle.pending_reload?,
+              hot_reloadable:           handle.hot_reloadable,
+              loaded_at:                handle.loaded_at&.iso8601,
+              last_error:               handle.last_error,
+              routes:                   handle.routes,
+              tools:                    handle.tools,
+              absorbers:                handle.absorbers,
+              owned_runners:            handle.runners
+            }.compact
+          end
+
+          def serialize_catalog_entry(name, entry)
+            return nil unless entry
+
+            { name: name, state: entry[:state].to_s,
+              registered_at: entry[:registered_at]&.iso8601,
+              started_at: entry[:started_at]&.iso8601 }
+          end
+
+          def filter_tool_entries(entries, params)
+            entries = entries.select { |e| e[:extension].to_s == params[:extension] } if params[:extension]
+            entries = entries.select { |e| e[:runner].to_s == params[:runner] } if params[:runner]
+            entries = entries.select { |e| e[:deferred] == (params[:deferred] == 'true') } if params.key?(:deferred)
+            entries = entries.select { |e| Array(e[:trigger_words]).any? } if params[:triggered] == 'true'
+            entries
+          end
+
+          def serialize_tool_entry(entry)
+            {
+              name:          entry[:name],
+              description:   entry[:description],
+              extension:     entry[:extension],
+              runner:        entry[:runner],
+              deferred:      entry[:deferred],
+              trigger_words: entry[:trigger_words],
+              source:        entry[:source],
+              sticky:        entry[:sticky]
+            }.compact
+          end
+
+          private :register_loaded_summary_route, :register_tools_route, :register_available_route,
+                  :register_extension_routes, :register_runner_routes, :register_function_routes,
+                  :register_invoke_route
+        end
+      end
+    end
+  end
+end

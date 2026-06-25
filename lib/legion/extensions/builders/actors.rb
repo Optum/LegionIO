@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'base'
 
 module Legion
@@ -19,9 +21,15 @@ module Legion
           actor_files.each do |file|
             actor_name = file.split('/').last.sub('.rb', '')
             actor_class = "#{lex_class}::Actor::#{actor_name.split('_').collect(&:capitalize).join}"
+            unless Kernel.const_defined?(actor_class)
+              Legion::Logging.warn "[Actors] constant #{actor_class} not defined, skipping" if defined?(Legion::Logging)
+              next
+            end
+            log.info "[Actors] built actor: #{actor_class}" if defined?(Legion::Logging)
             @actors[actor_name.to_sym] = {
               extension:      lex_class.to_s.downcase,
               extension_name: extension_name,
+              settings_path:  settings_path,
               actor_name:     actor_name,
               actor_class:    Kernel.const_get(actor_class),
               type:           'literal'
@@ -30,6 +38,11 @@ module Legion
         end
 
         def build_meta_actor_list
+          if lex_class.respond_to?(:remote_invocable?) && !lex_class.remote_invocable?
+            log.debug "[Actors] skipping meta actors for #{lex_class} (remote_invocable=false)"
+            return
+          end
+
           @runners.each do |runner, attr|
             next if @actors[runner.to_sym].is_a? Hash
 
@@ -38,6 +51,7 @@ module Legion
             @actors[runner.to_sym] = {
               extension:      attr[:extension],
               extension_name: attr[:extension_name],
+              settings_path:  attr[:settings_path],
               actor_name:     attr[:runner_name],
               actor_class:    Kernel.const_get(actor_class),
               type:           'meta'

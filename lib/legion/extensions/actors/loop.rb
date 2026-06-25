@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'base'
 
 module Legion
@@ -11,8 +13,7 @@ module Legion
           @loop = true
           async.run
         rescue StandardError => e
-          Legion::Logging.error e
-          Legion::Logging.error e.backtrace
+          handle_exception(e)
         end
 
         def run

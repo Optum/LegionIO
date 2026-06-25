@@ -1,17 +1,28 @@
+# frozen_string_literal: true
+
 require 'fileutils'
+require 'concurrent/atomic/atomic_boolean'
 
 module Legion
   class Process
+    class << self
+      attr_accessor :quit_flag
+    end
+
     def self.run!(options)
       Legion::Process.new(options).run!
     end
 
-    attr_reader :options, :quit, :service
+    attr_reader :options, :service
 
     def initialize(options)
       @options = options
       options[:logfile] = File.expand_path(logfile) if logfile?
       options[:pidfile] = File.expand_path(pidfile) if pidfile?
+    end
+
+    def quit
+      @quit.is_a?(Concurrent::AtomicBoolean) ? @quit.true? : !!@quit
     end
 
     def daemonize?
@@ -41,16 +52,19 @@ module Legion
     def run!
       start_time = Time.now
       @options[:time_limit] = @options[:time_limit].to_i if @options.key? :time_limit
-      @quit = false
+      @quit = Concurrent::AtomicBoolean.new(false)
+      self.class.quit_flag = @quit
       check_pid
       daemonize if daemonize?
       write_pid
       trap_signals
+      retrap_after_puma
 
       until quit
         sleep(1)
-        @quit = true if @options.key?(:time_limit) && Time.now - start_time > @options[:time_limit]
+        @quit.make_true if @options.key?(:time_limit) && Time.now - start_time > @options[:time_limit]
       end
+      @retrap_thread&.kill
       Legion::Logging.info('Legion is shutting down!')
       Legion.shutdown
       Legion::Logging.info('Legion has shutdown. Goodbye!')
@@ -73,7 +87,8 @@ module Legion
       if pidfile?
         begin
           File.open(pidfile, ::File::CREAT | ::File::EXCL | ::File::WRONLY) { |f| f.write(::Process.pid.to_s) }
-          at_exit { File.delete(pidfile) if File.exist?(pidfile) }
+          Legion::Logging.info "[Process] PID #{::Process.pid} written to #{pidfile}" if defined?(Legion::Logging)
+          at_exit { FileUtils.rm_f(pidfile) }
         rescue Errno::EEXIST
           check_pid
           retry
@@ -102,22 +117,39 @@ module Legion
 
       ::Process.kill(0, pid)
       :running
-    rescue Errno::ESRCH
+    rescue Errno::ESRCH => e
+      Legion::Logging.debug "Process#pid_status: pid=#{pid} is dead: #{e.message}" if defined?(Legion::Logging)
       :dead
-    rescue Errno::EPERM
+    rescue Errno::EPERM => e
+      Legion::Logging.debug "Process#pid_status: pid=#{pid} not owned: #{e.message}" if defined?(Legion::Logging)
       :not_owned
     end
 
     def trap_signals
       trap('SIGTERM') do
-        info 'sigterm'
+        Legion::Logging.info '[Process] received SIGTERM, shutting down' if defined?(Legion::Logging)
+        @quit.make_true
       end
 
       trap('SIGHUP') do
-        info 'sithup'
+        Legion::Logging.info '[Process] received SIGHUP, triggering reload' if defined?(Legion::Logging)
+        info 'sighup: triggering reload'
+        Thread.new { Legion.reload }
       end
+
       trap('SIGINT') do
-        @quit = true
+        Legion::Logging.info '[Process] received SIGINT, shutting down' if defined?(Legion::Logging)
+        @quit.make_true
+      end
+    end
+
+    def retrap_after_puma
+      @retrap_thread = Thread.new do
+        15.times do
+          sleep 1
+          trap('SIGINT') { @quit.make_true }
+          trap('SIGTERM') { @quit.make_true }
+        end
       end
     end
   end

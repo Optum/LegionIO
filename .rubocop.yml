@@ -1,90 +1,104 @@
+AllCops:
+  TargetRubyVersion: 3.4
+  NewCops: enable
+  SuggestExtensions: false
+
+Style/RedundantConstantBase:
+  Enabled: false
+
 Layout/LineLength:
   Max: 160
-  IgnoredPatterns:
-    - .unknown
-    - .fatal
-    - .error
-    - .warn
-    - .info
-    - .debug
-    - .trace
-Metrics:
-  IgnorePatterns:
-    - .unknown
-    - .fatal
-    - .error
-    - .warn
-    - .info
-    - .debug
-    - .trace
-Metrics/MethodLength:
-  Max: 50
-  IgnoredMethods:
-    - .unknown
-    - .fatal
-    - .error
-    - .warn
-    - .info
-    - .debug
-    - .trace
-Metrics/ClassLength:
-  Max: 1500
-Metrics/ModuleLength:
-  Max: 1500
-Metrics/BlockLength:
-  Max: 40
-  IgnoredMethods:
-    - .unknown
-    - .fatal
-    - .error
-    - .warn
-    - .info
-    - .debug
-    - .trace
-Metrics/AbcSize:
-  Max: 60
-  IgnoredMethods:
-    - .unknown
-    - .fatal
-    - .error
-    - .warn
-    - .info
-    - .debug
-    - .trace
-Metrics/CyclomaticComplexity:
-  Max: 15
-  IgnoredMethods:
-    - .unknown
-    - .fatal
-    - .error
-    - .warn
-    - .info
-    - .debug
-    - .trace
-Metrics/PerceivedComplexity:
-  Max: 17
-  IgnoredMethods:
-    - .unknown
-    - .fatal
-    - .error
-    - .warn
-    - .info
-    - .debug
-    - .trace
+  Exclude:
+    - 'Gemfile'
+
 Layout/SpaceAroundEqualsInParameterDefault:
   EnforcedStyle: space
-Style/SymbolArray:
-  Enabled: true
+
 Layout/HashAlignment:
   EnforcedHashRocketStyle: table
   EnforcedColonStyle: table
+
+Metrics/MethodLength:
+  Max: 80
+  Exclude:
+    - 'lib/legion/cli/chat_command.rb'
+    - 'lib/legion/api/openapi.rb'
+    - 'lib/legion/api/llm.rb'
+    - 'lib/legion/digital_worker/lifecycle.rb'
+
+Metrics/ClassLength:
+  Max: 1500
+
+Metrics/ModuleLength:
+  Max: 1500
+  Exclude:
+    - 'lib/legion/api/openapi.rb'
+
+Metrics/BlockLength:
+  Max: 80
+  Exclude:
+    - 'spec/**/*'
+    - 'integration/**/*'
+    - 'extensions-agentic/**/spec/**/*'
+    - 'extensions-core/**/spec/**/*'
+    - 'extensions/**/spec/**/*'
+    - 'extensions-ai/**/spec/**/*'
+    - 'extensions-other/**/spec/**/*'
+    - 'legionio.gemspec'
+    - 'lib/legion/cli/chat_command.rb'
+    - 'lib/legion/cli/plan_command.rb'
+    - 'lib/legion/cli/swarm_command.rb'
+    - 'lib/legion/cli/gaia_command.rb'
+    - 'lib/legion/cli/schedule_command.rb'
+    - 'lib/legion/cli/update_command.rb'
+    - 'lib/legion/api/auth.rb'
+    - 'lib/legion/api/auth_worker.rb'
+    - 'lib/legion/api/auth_human.rb'
+    - 'lib/legion/cli/auth_command.rb'
+    - 'lib/legion/cli/detect_command.rb'
+    - 'lib/legion/cli/prompt_command.rb'
+    - 'lib/legion/cli/image_command.rb'
+    - 'lib/legion/cli/notebook_command.rb'
+    - 'lib/legion/api/llm.rb'
+    - 'lib/legion/api/acp.rb'
+    - 'lib/legion/api/auth_saml.rb'
+    - 'lib/legion/cli/failover_command.rb'
+    - 'lib/legion/cli/setup_command.rb'
+    - 'lib/legion/cli/trace_command.rb'
+    - 'lib/legion/cli/features_command.rb'
+    - 'lib/legion/cli/absorb_command.rb'
+    - 'lib/legion/cli/mode_command.rb'
+
+Metrics/AbcSize:
+  Max: 80
+  Exclude:
+    - 'lib/legion/cli/chat_command.rb'
+    - 'lib/legion/api/llm.rb'
+    - 'lib/legion/digital_worker/lifecycle.rb'
+
+Metrics/CyclomaticComplexity:
+  Max: 25
+  Exclude:
+    - 'lib/legion/cli/chat_command.rb'
+    - 'lib/legion/api/auth_human.rb'
+    - 'lib/legion/api/llm.rb'
+    - 'lib/legion/digital_worker/lifecycle.rb'
+
+Metrics/PerceivedComplexity:
+  Max: 25
+  Exclude:
+    - 'lib/legion/api/auth_human.rb'
+    - 'lib/legion/api/llm.rb'
+    - 'lib/legion/digital_worker/lifecycle.rb'
+
 Style/Documentation:
   Enabled: false
-AllCops:
-  TargetRubyVersion: 2.5
-  NewCops: enable
-  SuggestExtensions: false
+Style/SymbolArray:
+  Enabled: true
 Style/FrozenStringLiteralComment:
-  Enabled: false
+  Enabled: true
+  EnforcedStyle: always
 Naming/FileName:
+  Enabled: false
+Naming/PredicateMethod:
   Enabled: false
