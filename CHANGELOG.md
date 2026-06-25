@@ -1,5 +1,11 @@
 # Legion Changelog
 
+## [1.9.43] - 2026-06-25
+
+### Fixed
+- API: replaced deleted `MicrosoftTeams::Helpers::TokenCache` reference in `AuthTeams` with `Identity::Entra::Helpers::TokenManager.save_token`, fixing `legionio auth` failures (fixes #229)
+
+
 ## [1.9.42] - 2026-06-07
 
 ### Performance
