@@ -53,6 +53,31 @@ RSpec.describe Legion::API::Middleware::Auth do
       status, = app.call(Rack::MockRequest.env_for('/api/auth/token'))
       expect(status).to eq(200)
     end
+
+    it 'skips a legitimate bounded sub-path (e.g. /api/health/live)' do
+      status, = app.call(Rack::MockRequest.env_for('/api/health/live'))
+      expect(status).to eq(200)
+    end
+  end
+
+  describe 'skip path prefix-bypass hardening (CWE-284)' do
+    # Prefix matching would have let these bypass auth; segment-bounded
+    # matching must require auth (401) for paths that merely share a prefix.
+    bypass_paths = %w[
+      /api/healthily_fake
+      /api/health_admin_backdoor
+      /api/ready_to_explode
+      /api/auth/tokens_dump
+      /api/auth/authorized_mimic
+      /metrics_debug
+    ]
+
+    bypass_paths.each do |path|
+      it "requires auth for #{path} (does not treat it as a skip path)" do
+        status, = app.call(Rack::MockRequest.env_for(path))
+        expect(status).to eq(401)
+      end
+    end
   end
 
   describe 'missing auth' do

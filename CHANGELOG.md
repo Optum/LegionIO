@@ -1,5 +1,31 @@
 # Legion Changelog
 
+## [1.9.48] - 2026-07-02
+
+### Security
+- API: fixed an authentication bypass in the auth middleware's `skip_path?` (CWE-284). It used bare prefix matching (`start_with?`), so any path sharing a prefix with an unauthenticated route bypassed auth — e.g. `/api/healthily_fake`, `/api/health/admin/export`, `/api/auth/tokens_dump` all matched `/api/health` / `/api/auth/token`. Now uses segment-bounded matching (exact path or `/`-delimited sub-path) via precompiled `SKIP_PATTERNS`, so only the intended paths and their legitimate sub-paths skip auth (fixes #209)
+
+## [1.9.47] - 2026-07-02
+
+### Fixed
+- API: `GET /api/health` now reflects subsystem health instead of always returning `200 ok`. It reports `degraded` with HTTP `503` when an **enabled and previously-healthy** subsystem (transport, cache, data) has broken — e.g. transport `session_open: false` after a connection recovery failure — and includes a per-component `components` breakdown (`enabled`/`healthy`/`detail`). A subsystem only degrades health if it was marked ready at boot (via `Legion::Readiness`); disabled or still-booting subsystems never fail the check. This makes the endpoint usable for load balancers and monitoring (fixes #194)
+
+## [1.9.46] - 2026-07-02
+
+### Fixed
+- API: `GET /api/extensions/tools` no longer 500s with `undefined method 'filter_tool_entries'`. The route block runs in the Sinatra instance context but `filter_tool_entries`/`serialize_tool_entry` are class methods on `Routes::Extensions`; they are now called on the explicit receiver, matching the pattern used by the other catalog routes. Added request specs for `/api/extensions/tools` (fixes #227)
+
+## [1.9.45] - 2026-07-02
+
+### Fixed
+- API: Teams delegated OAuth callback now forwards `tenant_id`/`client_id` to `Entra::Helpers::TokenManager.save_token(:delegated, …)` so browser-login tokens can be refreshed (previously omitted, forcing refresh to fall back to settings and silently fail for delegated-only logins). The unshipped `TokenCache` `require` that 500'd the callback was already removed in 1.9.43 (fixes #212)
+
+## [1.9.44] - 2026-07-01
+
+### Fixed
+- CLI: `connect status` now reads the Entra `TokenManager` (`token_data(:delegated)` + `expired?`) for the `microsoft` provider instead of the legacy `Legion::Auth::TokenManager` secret store, which the delegated/Teams login never writes to — previously always reported `microsoft: not connected` after a successful login (fixes #213)
+- CLI: `connect microsoft` now forwards `--tenant_id`/`--client_id`/`--scope` (as `--scopes`) explicitly to the Teams auth flow instead of dropping flag values via `ARGV.select`
+
 ## [1.9.43] - 2026-06-25
 
 ### Fixed

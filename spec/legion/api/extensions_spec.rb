@@ -137,6 +137,41 @@ RSpec.describe Legion::API::Routes::Extensions do
     end
   end
 
+  describe 'GET /api/extensions/tools' do
+    let(:tool_entries) do
+      [
+        { name: 'get_key', description: 'Get a key', extension: 'redis', runner: 'keys',
+          deferred: false, trigger_words: %w[redis key], source: 'lex', sticky: false },
+        { name: 'run_query', description: 'Run a query', extension: 'data', runner: 'sql',
+          deferred: true, trigger_words: [], source: 'lex', sticky: false }
+      ]
+    end
+
+    before do
+      allow(Legion::Settings::Extensions).to receive(:tools).and_return(tool_entries)
+    end
+
+    it 'returns 200 with serialized tools (regression: helpers are class methods, not instance)' do
+      get '/api/extensions/tools'
+      expect(last_response.status).to eq(200)
+      body = Legion::JSON.load(last_response.body)
+      expect(body[:data][:total]).to eq(2)
+      expect(body[:data][:tools].map { |t| t[:name] }).to contain_exactly('get_key', 'run_query')
+    end
+
+    it 'filters by ?extension= param' do
+      get '/api/extensions/tools?extension=redis'
+      body = Legion::JSON.load(last_response.body)
+      expect(body[:data][:tools].map { |t| t[:name] }).to contain_exactly('get_key')
+    end
+
+    it 'filters by ?deferred= param' do
+      get '/api/extensions/tools?deferred=true'
+      body = Legion::JSON.load(last_response.body)
+      expect(body[:data][:tools].map { |t| t[:name] }).to contain_exactly('run_query')
+    end
+  end
+
   describe 'GET /api/extension_catalog/available' do
     it 'returns the full ecosystem list' do
       get '/api/extension_catalog/available'

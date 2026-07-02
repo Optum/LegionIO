@@ -6,6 +6,9 @@ module Legion
       class Auth
         SKIP_PATHS       = %w[/api/health /api/ready /api/openapi.json /metrics /api/auth/token /api/auth/worker-token
                               /api/auth/authorize /api/auth/callback /api/auth/negotiate].freeze
+        # Match a skip path exactly or as a bounded sub-path (segment boundary),
+        # NOT as a bare prefix — `/api/healthily_fake` must not match `/api/health`.
+        SKIP_PATTERNS    = SKIP_PATHS.map { |p| %r{\A#{Regexp.escape(p)}(?:/|\z)} }.freeze
         AUTH_HEADER      = 'HTTP_AUTHORIZATION'
         BEARER_PATTERN   = /\ABearer\s+(.+)\z/i
         NEGOTIATE_PATTERN = /\ANegotiate\s+(.+)\z/i
@@ -81,7 +84,7 @@ module Legion
         end
 
         def skip_path?(path)
-          SKIP_PATHS.any? { |p| path.start_with?(p) }
+          SKIP_PATTERNS.any? { |re| re.match?(path) }
         end
 
         def extract_negotiate_token(env)
