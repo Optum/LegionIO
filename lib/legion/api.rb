@@ -5,6 +5,7 @@ require 'legion/json'
 require_relative 'events'
 require_relative 'readiness'
 require_relative 'api/default_settings'
+require_relative 'api/health'
 
 require_relative 'api/middleware/auth'
 require_relative 'api/middleware/body_limit'
@@ -107,7 +108,11 @@ module Legion
     # Health and readiness
     get '/api/health' do
       uptime_seconds = (::Process.clock_gettime(::Process::CLOCK_MONOTONIC) - START_TIME).to_i
-      json_response({ status: 'ok', version: Legion::VERSION, uptime_seconds: uptime_seconds, uptime: uptime_seconds })
+      assessment = Legion::API::Health.assess
+      json_response({ status: assessment[:status], version: Legion::VERSION,
+                      uptime_seconds: uptime_seconds, uptime: uptime_seconds,
+                      components: assessment[:components] },
+                    status_code: assessment[:status] == 'ok' ? 200 : 503)
     end
 
     get '/api/ready' do

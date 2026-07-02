@@ -1,5 +1,10 @@
 # Legion Changelog
 
+## [1.9.47] - 2026-07-02
+
+### Fixed
+- API: `GET /api/health` now reflects subsystem health instead of always returning `200 ok`. It reports `degraded` with HTTP `503` when an **enabled and previously-healthy** subsystem (transport, cache, data) has broken — e.g. transport `session_open: false` after a connection recovery failure — and includes a per-component `components` breakdown (`enabled`/`healthy`/`detail`). A subsystem only degrades health if it was marked ready at boot (via `Legion::Readiness`); disabled or still-booting subsystems never fail the check. This makes the endpoint usable for load balancers and monitoring (fixes #194)
+
 ## [1.9.46] - 2026-07-02
 
 ### Fixed
