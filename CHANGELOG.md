@@ -1,5 +1,11 @@
 # Legion Changelog
 
+## [1.9.44] - 2026-07-01
+
+### Fixed
+- CLI: `connect status` now reads the Entra `TokenManager` (`token_data(:delegated)` + `expired?`) for the `microsoft` provider instead of the legacy `Legion::Auth::TokenManager` secret store, which the delegated/Teams login never writes to — previously always reported `microsoft: not connected` after a successful login (fixes #213)
+- CLI: `connect microsoft` now forwards `--tenant_id`/`--client_id`/`--scope` (as `--scopes`) explicitly to the Teams auth flow instead of dropping flag values via `ARGV.select`
+
 ## [1.9.43] - 2026-06-25
 
 ### Fixed
