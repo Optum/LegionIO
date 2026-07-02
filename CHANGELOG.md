@@ -1,5 +1,10 @@
 # Legion Changelog
 
+## [1.9.45] - 2026-07-02
+
+### Fixed
+- API: Teams delegated OAuth callback now forwards `tenant_id`/`client_id` to `Entra::Helpers::TokenManager.save_token(:delegated, …)` so browser-login tokens can be refreshed (previously omitted, forcing refresh to fall back to settings and silently fail for delegated-only logins). The unshipped `TokenCache` `require` that 500'd the callback was already removed in 1.9.43 (fixes #212)
+
 ## [1.9.44] - 2026-07-01
 
 ### Fixed
