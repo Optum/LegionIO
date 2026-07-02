@@ -107,8 +107,9 @@ module Legion
             token_body = Legion::JSON.load(token_response.body)
 
             if token_body[:access_token]
-              # Store token via TokenCache if available
-              store_teams_token(token_body, entry[:scopes])
+              # Persist via the Entra TokenManager (the store the read path consults)
+              store_teams_token(token_body, entry[:scopes],
+                                tenant_id: entry[:tenant_id], client_id: entry[:client_id])
               AuthTeams.mutex.synchronize { entry[:result] = { authenticated: true } }
               content_type :html
               '<html><body><h2>Authentication successful!</h2><p>You can close this tab.</p></body></html>'
@@ -128,14 +129,16 @@ module Legion
         end
 
         module TeamsTokenHelper
-          def store_teams_token(token_body, scopes)
+          def store_teams_token(token_body, scopes, tenant_id: nil, client_id: nil)
             require 'legion/extensions/identity/entra/helpers/token_manager'
             Legion::Extensions::Identity::Entra::Helpers::TokenManager.save_token(
               :delegated,
               access_token:  token_body[:access_token],
               refresh_token: token_body[:refresh_token],
               expires_in:    token_body[:expires_in] || 3600,
-              scopes:        scopes
+              scopes:        scopes,
+              tenant_id:     tenant_id,
+              client_id:     client_id
             )
             Legion::Logging.info 'Teams delegated token stored' if defined?(Legion::Logging)
           rescue StandardError => e

@@ -1,5 +1,16 @@
 # Legion Changelog
 
+## [1.9.45] - 2026-07-02
+
+### Fixed
+- API: Teams delegated OAuth callback now forwards `tenant_id`/`client_id` to `Entra::Helpers::TokenManager.save_token(:delegated, …)` so browser-login tokens can be refreshed (previously omitted, forcing refresh to fall back to settings and silently fail for delegated-only logins). The unshipped `TokenCache` `require` that 500'd the callback was already removed in 1.9.43 (fixes #212)
+
+## [1.9.44] - 2026-07-01
+
+### Fixed
+- CLI: `connect status` now reads the Entra `TokenManager` (`token_data(:delegated)` + `expired?`) for the `microsoft` provider instead of the legacy `Legion::Auth::TokenManager` secret store, which the delegated/Teams login never writes to — previously always reported `microsoft: not connected` after a successful login (fixes #213)
+- CLI: `connect microsoft` now forwards `--tenant_id`/`--client_id`/`--scope` (as `--scopes`) explicitly to the Teams auth flow instead of dropping flag values via `ARGV.select`
+
 ## [1.9.43] - 2026-06-25
 
 ### Fixed
