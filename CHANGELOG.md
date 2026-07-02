@@ -1,5 +1,10 @@
 # Legion Changelog
 
+## [1.9.46] - 2026-07-02
+
+### Fixed
+- API: `GET /api/extensions/tools` no longer 500s with `undefined method 'filter_tool_entries'`. The route block runs in the Sinatra instance context but `filter_tool_entries`/`serialize_tool_entry` are class methods on `Routes::Extensions`; they are now called on the explicit receiver, matching the pattern used by the other catalog routes. Added request specs for `/api/extensions/tools` (fixes #227)
+
 ## [1.9.45] - 2026-07-02
 
 ### Fixed
