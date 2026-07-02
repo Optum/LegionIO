@@ -162,6 +162,8 @@ rebuild, which is why most public repos are young. It runs production workloads 
 It is early, it is small, and the code is real. Read the source before betting on it —
 that's what it's there for.
 
+The commit history shows the shape plainly: a 2018-era org, early gems from 2019, and an intense 2025–2026 rebuild sprint. That rebuild was heavily AI-assisted — and the LLM traffic behind it was routed through LegionIO itself, which means the production metrics published here are largely the workload of building the thing they describe. The 1:1 test-to-code ratio, PR-gated flow, and conventional commits are what make that velocity safe; the audit ledger is its receipt trail.
+
 ## Requirements
 
 - Ruby >= 3.4
