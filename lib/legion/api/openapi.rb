@@ -432,7 +432,9 @@ module Legion
             get: {
               tags:        ['Health'],
               summary:     'Health check',
-              description: 'Returns ok status and version. Skips auth middleware.',
+              description: 'Returns ok/degraded status, version, and per-subsystem component health. ' \
+                           'Returns 503 when an enabled, previously-healthy subsystem (transport, cache, data) ' \
+                           'has degraded. Skips auth middleware.',
               operationId: 'getHealth',
               security:    [],
               responses:   {
@@ -440,11 +442,13 @@ module Legion
                                                   properties: {
                                                     data: {
                                                       type:       'object',
-                                                      properties: { status: { type: 'string', example: 'ok' }, version: { type: 'string' } }
+                                                      properties: { status: { type: 'string', example: 'ok' }, version: { type: 'string' },
+                                                                    components: { type: 'object' } }
                                                     },
                                                     meta: { '$ref' => '#/components/schemas/Meta' }
                                                   }
-                                                ))
+                                                )),
+                '503' => { description: 'Degraded — an enabled subsystem has broken' }
               }
             }
           },

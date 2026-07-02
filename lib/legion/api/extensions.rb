@@ -32,8 +32,8 @@ module Legion
 
         def self.register_tools_route(app)
           app.get '/api/extensions/tools' do
-            entries = filter_tool_entries(Array(Legion::Settings::Extensions.tools), params)
-            tools = entries.map { |e| serialize_tool_entry(e) }
+            entries = Routes::Extensions.filter_tool_entries(Array(Legion::Settings::Extensions.tools), params)
+            tools = entries.map { |e| Routes::Extensions.serialize_tool_entry(e) }
             json_response({ total: tools.size, tools: tools })
           end
         end
