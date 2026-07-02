@@ -27,7 +27,7 @@ install as separate gems:
 | Layer | Gem | What it adds | Requires |
 |-------|-----|--------------|----------|
 | Task engine | [legionio](https://github.com/LegionIO/LegionIO) | Task chains, scheduling, 8 actor types, CLI, REST API | nothing (lite mode) |
-| LLM gateway | [legion-llm](https://github.com/LegionIO/legion-llm) | Any-client-to-any-provider routing, tiered escalation, mid-stream failover, context curation | usable standalone |
+| LLM gateway | [legion-llm](https://github.com/LegionIO/legion-llm) | Any-client-to-any-provider routing, tiered escalation, mid-stream failover, context curation, fleet dispatch to pooled workstation GPUs | usable standalone |
 | MCP server | [legion-mcp](https://github.com/LegionIO/legion-mcp) | Exposes tasks and extensions as MCP tools (stdio or HTTP) | legion-llm |
 | Knowledge store | [legion-apollo](https://github.com/LegionIO/legion-apollo) | RAG retrieval, embeddings, confidence-decayed knowledge | activated by lex-apollo / lex-knowledge |
 | Access control | [legion-rbac](https://github.com/LegionIO/legion-rbac) | Vault-style flat policies | usable standalone |
@@ -163,6 +163,8 @@ It is early, it is small, and the code is real. Read the source before betting o
 that's what it's there for.
 
 The commit history shows the shape plainly: a 2018-era org, early gems from 2019, and an intense 2025–2026 rebuild sprint. That rebuild was heavily AI-assisted — and the LLM traffic behind it was routed through LegionIO itself, which means the production metrics published here are largely the workload of building the thing they describe. The 1:1 test-to-code ratio, PR-gated flow, and conventional commits are what make that velocity safe; the audit ledger is its receipt trail.
+
+LegionIO is also published through [Optum Open Source](https://github.com/Optum/LegionIO), where it first shipped publicly; this org is the active development home, and updates are periodically merged back upstream. The enterprise provenance is why a framework this young ships RBAC, an audit ledger, and identity integration — a real production deployment required them.
 
 ## Requirements
 
