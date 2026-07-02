@@ -1,5 +1,10 @@
 # Legion Changelog
 
+## [1.9.48] - 2026-07-02
+
+### Security
+- API: fixed an authentication bypass in the auth middleware's `skip_path?` (CWE-284). It used bare prefix matching (`start_with?`), so any path sharing a prefix with an unauthenticated route bypassed auth — e.g. `/api/healthily_fake`, `/api/health/admin/export`, `/api/auth/tokens_dump` all matched `/api/health` / `/api/auth/token`. Now uses segment-bounded matching (exact path or `/`-delimited sub-path) via precompiled `SKIP_PATTERNS`, so only the intended paths and their legitimate sub-paths skip auth (fixes #209)
+
 ## [1.9.47] - 2026-07-02
 
 ### Fixed
