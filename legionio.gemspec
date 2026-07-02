@@ -10,8 +10,11 @@ Gem::Specification.new do |spec|
   spec.authors       = ['Esity']
   spec.email         = ['matthewdiverson@gmail.com']
 
-  spec.summary       = 'The primary gem to run the LegionIO Framework'
-  spec.description   = 'LegionIO is an extensible framework for running, scheduling and building relationships of tasks in a concurrent matter'
+  spec.summary       = 'Modular Ruby framework: distributed async job engine with optional LLM gateway, MCP server, and RBAC'
+  spec.description   = 'LegionIO chains tasks into dependency graphs across a RabbitMQ fleet, or fully in-process via ' \
+                       'lite mode with zero infrastructure. Optional layers install as independent gems: legion-llm adds ' \
+                       'tiered LLM routing with mid-stream failover and context curation, legion-mcp adds an MCP server, ' \
+                       'legion-rbac adds access control. All open source, no feature gates.'
   spec.homepage      = 'https://github.com/LegionIO/LegionIO'
   spec.license       = 'Apache-2.0'
   spec.require_paths = ['lib']
